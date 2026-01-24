@@ -3,18 +3,26 @@ package com.example.hatestuff3.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.hatestuff3.data.local.database.repository.PostRepository
 import com.example.hatestuff3.data.local.database.repository.UserRepository
 
-class AuthViewModelFactory (
-    private val repository: UserRepository
-): ViewModelProvider.Factory {
+class AuthViewModelFactory(
+    private val userRepository: UserRepository,
+    private val postRepository: PostRepository
+) : ViewModelProvider.Factory {
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        //cree el viewmodel con el parametro
-        if(modelClass.isAssignableFrom(AuthViewModel::class.java)){
-            return AuthViewModel(repository) as T
+        // Caso 1: Si piden el AuthViewModel (Login/Registro)
+        if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
+            return AuthViewModel(userRepository) as T
         }
-        //si es otro viewmodel que no usa parametros
-        throw IllegalArgumentException("Uknow ViewModel class: ${modelClass.name}")
+
+        // Caso 2: Si piden el PostViewModel
+        if (modelClass.isAssignableFrom(PostViewModel::class.java)) {
+            return PostViewModel(postRepository) as T
+        }
+
+        throw IllegalArgumentException("Clase ViewModel desconocida")
     }
 }

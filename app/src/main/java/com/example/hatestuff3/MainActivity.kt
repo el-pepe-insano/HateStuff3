@@ -11,10 +11,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.hatestuff3.data.local.database.AppDatabase
+import com.example.hatestuff3.data.local.database.repository.PostRepository
 import com.example.hatestuff3.data.local.database.repository.UserRepository
 import com.example.hatestuff3.navigation.AppNavGraph
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModelFactory
+import com.example.hatestuff3.ui.viewmodel.PostViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,26 +30,42 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppRoot(){
-    //manipular los datos para la creacion de la BD y el repositorio
-    //obtenemos el contexto actual de la app
+    // --- 1. CONFIGURACIÓN DE BASE DE DATOS Y REPOSITORIOS ---
     val context = LocalContext.current.applicationContext
-    //creamos u obtenemos la instancia de la BD
-    val db = AppDatabase.getInstance(context)
-    //creamos todos los DAO
-    val userDao = db.userDao()
-    //creamos los repositorios asociados a los DAO
-    val userRepository = UserRepository(userDao)
-    //creamos los viewmodel
-    val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(userRepository)
-    )
 
-    //crear un cotrolador de navegación principal
+    // Instancia de la BD
+    val db = AppDatabase.getInstance(context)
+
+    // DAOs
+    val userDao = db.userDao()
+    val postDao = db.postDao() // <--- Nuevo
+
+    // Repositorios
+    val userRepository = UserRepository(userDao)
+    val postRepository = PostRepository(postDao) // <--- Nuevo
+
+    // --- 2. CONFIGURACIÓN DE VIEWMODELS ---
+
+    // Creamos la fábrica con AMBOS repositorios
+    val factory = AuthViewModelFactory(userRepository, postRepository)
+
+    // ViewModel de Autenticación (Login/Registro)
+    val authViewModel: AuthViewModel = viewModel(factory = factory)
+
+    // ViewModel de Posts (Muro/Feed) <--- Nuevo (listo para usarse)
+    val postViewModel: PostViewModel = viewModel(factory = factory)
+
+    // --- 3. NAVEGACIÓN ---
     val navController = rememberNavController()
-    MaterialTheme { //modifico la plantilla de diseño al de material design
-        //contenedor principal para el fondo de mi app
+
+    MaterialTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AppNavGraph(navController = navController, authViewModel = authViewModel)
+            // Aún no pasamos postViewModel aquí para evitar errores hasta que editemos AppNavGraph
+            AppNavGraph(
+                navController = navController,
+                authViewModel = authViewModel,
+                postViewModel = postViewModel
+            )
         }
     }
 }

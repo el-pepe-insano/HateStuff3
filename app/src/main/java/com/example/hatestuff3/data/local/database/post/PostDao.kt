@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 interface PostDao {
     // Insertar un post
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPost(post: PostEntity)
+    suspend fun insertPost(post: PostEntity): Long
 
     // Obtener todos los posts (ordenados por fecha, más nuevos primero)
     @Query("SELECT * FROM posts ORDER BY timestamp DESC")
