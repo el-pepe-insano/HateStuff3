@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Crear e indicar directorio dentro de mi app donde guardar fotos -->
+    <cache-path
+        name="camera_cache"
+        path="images"/>
+</paths>
