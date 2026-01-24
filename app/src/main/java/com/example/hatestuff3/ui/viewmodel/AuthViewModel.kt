@@ -6,7 +6,6 @@ import com.example.hatestuff3.data.local.database.repository.UserRepository
 import com.example.hatestuff3.domain.validation.validateConfirm
 import com.example.hatestuff3.domain.validation.validateEmail
 import com.example.hatestuff3.domain.validation.validateNameLettersOnly
-import com.example.hatestuff3.domain.validation.validatePhoneDigitsOnly
 import com.example.hatestuff3.domain.validation.validateStringPassword
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,13 +33,11 @@ data class LoginUiState(
 data class RegisterUiState(
     //campos del formulario
     val name: String = "",
-    val phone: String = "",
     val email: String = "",
     val pass: String = "",
     val confirm: String = "",
     //mostrar errores de cada campo del formulario
     val nameError: String? = null,
-    val phoneError: String? = null,
     val emailError: String? = null,
     val passError: String? = null,
     val confirmError: String? = null,
@@ -72,8 +69,9 @@ class AuthViewModel(
 
     //para habilitar/deshabilitar boton iniciar sesion
     private fun recomputeLoginCanSubmit(){
-        val s = _login.value //obtenemos todos los datos actuales del formulario
-        val can = s.emailError == null && s.pass.isNotBlank() && s.email.isNotBlank()
+        val s = _login.value
+        // Verifica que NO haya error de email y que ambos campos tengan texto
+        val can = s.emailError == null && s.email.isNotBlank() && s.pass.isNotBlank()
         _login.update { it.copy(canSubmit = can) }
     }
 
@@ -83,7 +81,8 @@ class AuthViewModel(
         recomputeLoginCanSubmit()
     }
     fun onLoginPassChange(value: String){
-        _login.update { it.copy(email = value) }
+        // Cambia it.copy(email = value) por it.copy(pass = value)
+        _login.update { it.copy(pass = value) }
         recomputeLoginCanSubmit()
     }
 
@@ -116,13 +115,14 @@ class AuthViewModel(
         _login.update { it.copy(success = false, errorMsg = "") }
     }
 
+
     //REGISTRO
     //para habilitar/deshabilitar boton registrar
     private fun recomputeRegisterCanSubmit(){
         val s = _register.value //obtenemos todos los datos actuales del formulario
-        val noErrors = listOf(s.nameError,s.emailError,s.phoneError,
+        val noErrors = listOf(s.nameError,s.emailError,
             s.passError, s.confirmError).all { it == null }
-        val filled = s.name.isNotBlank() && s.email.isNotBlank() && s.phone.isNotBlank()
+        val filled = s.name.isNotBlank() && s.email.isNotBlank()
                 && s.pass.isNotBlank() && s.confirm.isNotBlank()
         _register.update { it.copy(canSubmit = noErrors && filled) }
     }
@@ -139,16 +139,16 @@ class AuthViewModel(
         }
         recomputeRegisterCanSubmit()
     }
-    fun onPhoneChange(value: String){
-        val digitsOnly = value.filter { it.isDigit() }
+
+    fun onRegisterPassChange(value: String) {
+        _register.update { it.copy(
+            pass = value,
+            passError = validateStringPassword(value)
+        )}
+        // Después de actualizar la pass, validamos si la confirmación sigue coincidiendo
         _register.update {
-            it.copy(phone = digitsOnly, phoneError = validatePhoneDigitsOnly(digitsOnly))
+            it.copy(confirmError = validateConfirm(it.pass, it.confirm))
         }
-        recomputeRegisterCanSubmit()
-    }
-    fun onRegisterPassChange(value: String){
-        _register.update { it.copy(pass = value, passError = validateStringPassword(value)) }
-        _register.update { it.copy(confirmError = validateConfirm(it.pass,it.confirm))}
         recomputeRegisterCanSubmit()
     }
     fun onConfirmChange(value: String){
@@ -167,7 +167,6 @@ class AuthViewModel(
             val result = repository.register(
                 name = s.name,
                 email = s.email,
-                 phone = s.phone,
                 password = s.pass
             )
             _register.update {

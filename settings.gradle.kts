@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "HateStuff3"
 include(":app")
+
  

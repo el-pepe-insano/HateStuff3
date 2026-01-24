@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 @Dao
+@JvmSuppressWildcards
 interface UserDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

@@ -14,65 +14,58 @@ import kotlinx.coroutines.launch
 import com.example.hatestuff3.data.local.database.post.PostEntity
 import com.example.hatestuff3.data.local.database.post.CommentEntity
 
-
 @Database(
-    entities = [UserEntity::class, PostEntity::class, CommentEntity::class], // <--- AGREGAR AQUÍ
-    version = 2, // <--- SUBIR VERSIÓN
+    entities = [UserEntity::class, PostEntity::class, CommentEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase: RoomDatabase(){
-    //exponer/importar todos los DAO  de mis entidades
+
     abstract fun userDao(): UserDao
     abstract fun postDao(): PostDao
+    // abstract fun commentDao(): CommentDao // Descomenta esto cuando crees el CommentDao
 
     companion object{
-        //variable para las instancia de la BD
         @Volatile
         private var INSTANCE: AppDatabase? = null
-        //variable para indicar el nombre de la base de datos
         private const val DB_NAME = "hatestuff.db"
 
-        //obteniendo la instancia de conexion a la BD
         fun getInstance(context: Context): AppDatabase{
             return INSTANCE ?: synchronized(this){
-                //construimos la base de datos
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     DB_NAME
                 )
-                    //ejecute la creacion en caso de que sea la primera vez
                     .addCallback(object : RoomDatabase.Callback(){
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
-                            //corrutina insertar datos iniciales en mis tablas
-                            CoroutineScope (Dispatchers.IO).launch {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                // Usamos el contexto para obtener la instancia y el DAO
                                 val dao = getInstance(context).userDao()
 
-                                // CORREGÍ ESTA LISTA (te faltaba una coma y cerrar bien el paréntesis)
+                                // DATOS DE PRUEBA (SEED) - SIN TELÉFONO
                                 val seed = listOf(
                                     UserEntity(
                                         name = "admin",
                                         email = "a@a.cl",
-                                        phone = "12345678",
                                         password = "Admin123!"
-                                    ), // <--- Coma aquí
+                                    ),
                                     UserEntity(
                                         name = "Cliente",
                                         email = "c@c.cl",
-                                        phone = "12345678",
                                         password = "Cliente123!"
                                     )
-                                ) // <--- Cierre de lista aquí
+                                )
 
-                                //validar que solo se inserte la primera vez
                                 if (dao.count() == 0){
                                     seed.forEach { dao.insertar(it) }
                                 }
                             }
                         }
                     })
-                    .fallbackToDestructiveMigration() // Esto está perfecto
+                    // Esto permite borrar la BD vieja y crear la nueva sin crashear al cambiar versiones
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
@@ -80,4 +73,3 @@ abstract class AppDatabase: RoomDatabase(){
         }
     }
 }
-

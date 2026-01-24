@@ -1,5 +1,6 @@
 package com.example.hatestuff3.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hatestuff3.data.local.database.post.PostEntity
@@ -11,13 +12,12 @@ import kotlinx.coroutines.launch
 
 class PostViewModel(private val repository: PostRepository) : ViewModel() {
 
-    // Estado interno: Lista de posts
     private val _posts = MutableStateFlow<List<PostEntity>>(emptyList())
-    // Estado público: Lo que ve la pantalla (es de solo lectura para proteger los datos)
     val posts: StateFlow<List<PostEntity>> = _posts.asStateFlow()
 
     init {
-        // Apenas nace el ViewModel, empezamos a escuchar los cambios en la base de datos
+        // Al usar .collect sobre el Flow del repositorio, la lista se actualiza
+        // automáticamente cada vez que alguien publica algo nuevo.
         viewModelScope.launch {
             repository.allPosts.collect { listaActualizada ->
                 _posts.value = listaActualizada
@@ -25,19 +25,23 @@ class PostViewModel(private val repository: PostRepository) : ViewModel() {
         }
     }
 
-    // Acción: El usuario escribió algo y le dio a "Publicar"
-    fun agregarPost(contenido: String, autorId: Int) {
+    /**
+     * Función para publicar posts híbridos (Texto + Foto opcional)
+     * Coincide con la llamada desde AppNavGraph.
+     */
+    fun submitPost(content: String, uri: Uri?) { // El parámetro se llama 'content'
         viewModelScope.launch {
             val nuevoPost = PostEntity(
-                authorId = autorId,
-                content = contenido,
-                title = "Sin Título" // O puedes pedir título también
+                authorId = 1,
+                authorName = "Usuario",
+                content = content,          // CAMBIO: Antes decía 'contenido', ahora 'content'
+                imageUri = uri?.toString()
             )
             repository.createPost(nuevoPost)
         }
     }
 
-    // Acción: El usuario dio like
+    // Mantengo tu lógica de likes
     fun darLike(postId: Int) {
         viewModelScope.launch {
             repository.likePost(postId)

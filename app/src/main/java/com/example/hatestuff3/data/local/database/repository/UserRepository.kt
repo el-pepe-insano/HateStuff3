@@ -20,7 +20,7 @@ class UserRepository (
 
 
     //ejecutar el registro de un usuario nuevo
-    suspend fun register(name: String, email: String, phone: String, password: String):Result<Long>{
+    suspend fun register(name: String, email: String,  password: String):Result<Long>{
         //verificar si ya existe el usuario (por correo)
         val exists = userDao.getByEmail(email) != null
         if(exists){
@@ -31,7 +31,6 @@ class UserRepository (
                 UserEntity(
                     name = name,
                     email = email,
-                    phone = phone,
                     password = password
 
                 )

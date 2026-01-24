@@ -8,7 +8,6 @@ import com.example.hatestuff3.data.local.database.user.UserEntity
 @Entity(
     tableName = "posts",
     foreignKeys = [
-        // Esto asegura que si borras un usuario, se borren sus posts (Opcional, pero recomendado para limpieza)
         ForeignKey(
             entity = UserEntity::class,
             parentColumns = ["id"],
@@ -19,9 +18,10 @@ import com.example.hatestuff3.data.local.database.user.UserEntity
 )
 data class PostEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val authorId: Int,       // ID del usuario que lo publicó
-    val content: String,     // Texto del post
-    val title: String,       // Título (opcional si quieres)
-    val likesCount: Int = 0, // Contador simple de likes
-    val timestamp: Long = System.currentTimeMillis() // Fecha de creación
+    val authorId: Int,
+    val authorName: String, // Asegúrate de que esta línea exista
+    val content: String,
+    val imageUri: String? = null,
+    val likesCount: Int = 0,
+    val timestamp: Long = System.currentTimeMillis()
 )

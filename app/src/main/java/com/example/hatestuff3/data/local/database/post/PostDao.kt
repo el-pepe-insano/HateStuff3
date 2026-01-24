@@ -7,6 +7,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+@JvmSuppressWildcards
 interface PostDao {
     // Insertar un post
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -18,7 +19,7 @@ interface PostDao {
 
     // Insertar un comentario
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertComment(comment: CommentEntity)
+    suspend fun insertComment(comment: CommentEntity): Long
 
     // Obtener comentarios de un post específico
     @Query("SELECT * FROM comments WHERE postId = :postId ORDER BY timestamp ASC")
