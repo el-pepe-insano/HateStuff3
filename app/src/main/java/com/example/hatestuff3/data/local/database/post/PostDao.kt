@@ -4,28 +4,30 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-@JvmSuppressWildcards
 interface PostDao {
-    // Insertar un post
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPost(post: PostEntity): Long
-
-    // Obtener todos los posts (ordenados por fecha, más nuevos primero)
-    @Query("SELECT * FROM posts ORDER BY timestamp DESC")
+    // --- 1. POSTS (Lo que ya tenías) ---
+    @Query("SELECT * FROM posts ORDER BY creationTime DESC")
     fun getAllPosts(): Flow<List<PostEntity>>
 
-    // Insertar un comentario
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertComment(comment: CommentEntity): Long
+    suspend fun insertPost(post: PostEntity)
 
-    // Obtener comentarios de un post específico
+    // --- 2. LIKES (Lo que se ve al final de tu foto) ---
+    @Query("UPDATE posts SET likes = likes + 1 WHERE id = :postId")
+    suspend fun incrementLikes(postId: Long)
+
+    // --- 3. COMENTARIOS (LO QUE FALTA y causa los errores) ---
+    // Debes agregar esto para que el error del Repositorio desaparezca
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertComment(comment: CommentEntity)
+
     @Query("SELECT * FROM comments WHERE postId = :postId ORDER BY timestamp ASC")
-    fun getCommentsForPost(postId: Int): Flow<List<CommentEntity>>
+    fun getCommentsForPost(postId: Long): Flow<List<CommentEntity>>
 
-    // Dar Like (Incrementar contador)
-    @Query("UPDATE posts SET likesCount = likesCount + 1 WHERE id = :postId")
-    suspend fun incrementLikes(postId: Int)
+    @Update
+    suspend fun updatePost(post: PostEntity)
 }

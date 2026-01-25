@@ -1,11 +1,11 @@
 package com.example.hatestuff3.ui.components
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,75 +24,99 @@ import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppTopBar (
-    onOpenDrawer: () -> Unit, //abre el menu desplegable
-    onHome: () -> Unit,//ir a home
-    onLogin: () -> Unit,// redirije al login
-    onRegister: () -> Unit //redirije al registro
-){
-    //variable remember son acciones hechas anteriormente y son asincronicas0
-    //creamos una variable que recuerde el esstado del menu desplegable de 3 puntitos para abajo
+fun AppTopBar(
+    onOpenDrawer: () -> Unit,
+    // CAMBIO IMPORTANTE: Ahora todos son opcionales (pueden ser nulos)
+    // Esto permite que el NavGraph pase 'null' cuando quiera ocultar el botón.
+    onHome: (() -> Unit)? = null,
+    onLogin: (() -> Unit)? = null,
+    onRegister: (() -> Unit)? = null
+) {
+    // Variable para controlar el estado del menú desplegable
     var showMenu by remember { mutableStateOf(false) }
 
-    //barra alineada en el centro del topbar
     CenterAlignedTopAppBar(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = MaterialTheme.colorScheme.primary
         ),
         title = {
             Text(
-                text = "Menu Superior",
+                text = "HateStuff",
                 style = MaterialTheme.typography.titleLarge,
-                maxLines = 1, // cantidad de lineas en que se puede mostrar texto
-                overflow = TextOverflow.Ellipsis //agrega los 3 puntos suspensivos y no se muestra textro entero
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         },
-        //icono de cogollo para menu desplegable
         navigationIcon = {
-            IconButton(onClick = onOpenDrawer)  {
-                Icon(imageVector = Icons.Filled.Menu, contentDescription = "Menu")
+            IconButton(onClick = onOpenDrawer) {
+                Icon(imageVector = Icons.Filled.Menu, contentDescription = "Abrir Menú")
             }
         },
-        //iconos conn action
         actions = {
-            IconButton(onClick = onHome) {
-                Icon(imageVector = Icons.Filled.Home, contentDescription = "Home")
+            // Lógica inteligente: Solo mostramos el icono si la función NO es nula.
+
+            // 1. Botón Home
+            if (onHome != null) {
+                IconButton(onClick = { onHome() }) {
+                    Icon(imageVector = Icons.Filled.Home, contentDescription = "Inicio")
+                }
             }
 
-            IconButton(onClick = onLogin) {
-                Icon(imageVector = Icons.Filled.Person, contentDescription = "Login")
+            // 2. Botón Login
+            if (onLogin != null) {
+                IconButton(onClick = { onLogin() }) {
+                    Icon(imageVector = Icons.Filled.Person, contentDescription = "Login")
+                }
             }
 
-            IconButton(onClick = onRegister) {
-                Icon(imageVector = Icons.Filled.AccountCircle, contentDescription = "Register")
+            // 3. Botón Registro
+            if (onRegister != null) {
+                IconButton(onClick = { onRegister() }) {
+                    Icon(imageVector = Icons.Filled.PersonAdd, contentDescription = "Registro")
+                }
             }
 
-            IconButton(onClick ={ showMenu = true}) {
-                Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "Ver mas")
+            // 4. Botón Menú "Ver más" (Siempre visible)
+            IconButton(onClick = { showMenu = true }) {
+                Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "Ver más")
             }
+
+            // Menú desplegable
             DropdownMenu(
-                expanded = showMenu,//si esta abierto o cerrado
-                onDismissRequest = {showMenu = false}
-
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
             ) {
-                DropdownMenuItem(
-                    text = {Text("ir al home")},
-                    onClick = {showMenu = false; onHome()}
+                // Solo mostramos las opciones del menú si existen
+                if (onHome != null) {
+                    DropdownMenuItem(
+                        text = { Text("Ir al Home") },
+                        onClick = {
+                            showMenu = false
+                            onHome()
+                        }
+                    )
+                }
 
-                )
-                DropdownMenuItem(
-                    text = {Text("ir al Inicio de sesion")},
-                    onClick = {showMenu = false; onLogin()}
+                if (onLogin != null) {
+                    DropdownMenuItem(
+                        text = { Text("Inicio de Sesión") },
+                        onClick = {
+                            showMenu = false
+                            onLogin()
+                        }
+                    )
+                }
 
-                )
-                DropdownMenuItem(
-                    text = {Text("ir al Registro")},
-                    onClick = {showMenu = false; onRegister()}
-
-                )
-
+                if (onRegister != null) {
+                    DropdownMenuItem(
+                        text = { Text("Registro") },
+                        onClick = {
+                            showMenu = false
+                            onRegister()
+                        }
+                    )
+                }
             }
-
         }
     )
 }

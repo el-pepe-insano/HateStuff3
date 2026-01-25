@@ -12,6 +12,8 @@ data class UserEntity(
 
     val name: String,
     val email: String,
-    val password: String
+    val password: String,
+    val bio: String = "",
+    val profilePictureUri: String? = null
     //investigar como identificar las llaves foráneas
 )

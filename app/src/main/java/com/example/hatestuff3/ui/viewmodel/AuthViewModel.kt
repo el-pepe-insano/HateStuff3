@@ -1,186 +1,167 @@
 package com.example.hatestuff3.ui.viewmodel
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.hatestuff3.data.local.database.repository.UserRepository
-import com.example.hatestuff3.domain.validation.validateConfirm
-import com.example.hatestuff3.domain.validation.validateEmail
-import com.example.hatestuff3.domain.validation.validateNameLettersOnly
-import com.example.hatestuff3.domain.validation.validateStringPassword
-import kotlinx.coroutines.delay
+import com.example.hatestuff3.data.local.database.user.UserDao
+import com.example.hatestuff3.data.local.database.user.UserEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+// Estado unificado para mantener la UI sincronizada
+data class AuthState(
+    // Campos de Login
+    val loginEmail: String = "",
+    val loginPass: String = "",
+    val loginError: String? = null,
 
+    // Campos de Registro
+    val regName: String = "",
+    val regNameError: String? = null,
+    val regEmail: String = "",
+    val regEmailError: String? = null,
+    val regPass: String = "",
+    val regPassError: String? = null,
+    val regConfirm: String = "",
+    val regConfirmError: String? = null,
 
-data class LoginUiState(
-    //campos del formulario
-    val email: String = "",
-    val pass: String = "",
-    //mostrar errores de cada campo del formulario
-    val emailError: String? = null,
-    val passError: String? = null,
-    //variable para error global del formulario. Ejemplo: credenciales incorrectas
-    val errorMsg: String? = null,
-    //variables para manejar los estados del formulario
-    val isSubmitting: Boolean = false, //saber si el formulario se esta ejecutando
-    val canSubmit: Boolean = false, //saber si el botón está activo
-    val success: Boolean= false //saber si el formulario se ejcuto de manera correcta
+    // Estados generales
+    val isLoading: Boolean = false,
+    val isLoginSuccess: Boolean = false,
+    val isRegisterSuccess: Boolean = false
 )
 
-data class RegisterUiState(
-    //campos del formulario
-    val name: String = "",
-    val email: String = "",
-    val pass: String = "",
-    val confirm: String = "",
-    //mostrar errores de cada campo del formulario
-    val nameError: String? = null,
-    val emailError: String? = null,
-    val passError: String? = null,
-    val confirmError: String? = null,
-    //variable para error global del formulario. Ejemplo: correo ya registrado
-    val errorMsg: String? = null,
-    //variables para manejar los estados del formulario
-    val isSubmitting: Boolean = false, //saber si el formulario se esta ejecutando
-    val canSubmit: Boolean = false, //saber si el botón está activo
-    val success: Boolean= false //saber si el formulario se ejcuto de manera correcta
-)
+class AuthViewModel(private val userDao: UserDao) : ViewModel() {
 
+    private val _state = MutableStateFlow(AuthState())
+    val state: StateFlow<AuthState> = _state.asStateFlow()
 
+    private val _currentUser = MutableStateFlow<UserEntity?>(null)
+    val currentUser: StateFlow<UserEntity?> = _currentUser
 
-class AuthViewModel(
-    //repositorio que va a usar
-    private val repository: UserRepository
-): ViewModel(){
-    //persistir la coleccion de usuarios para todas las diferentes instancias de este archivo
-
-    //variables para manejar los flujos de estado desde la UI
-    private val _login = MutableStateFlow(LoginUiState()) //estado interno para el login
-    val login: StateFlow<LoginUiState> = _login //copia de la anterior para que se pueda ver sus datos
-
-    private val _register = MutableStateFlow(RegisterUiState()) //estado interno para el registro
-    val register: StateFlow<RegisterUiState> = _register //copia de la anterior para que se pueda ver sus datos
-
-    //funciones de manejo de los formularios
-    //Login
-
-    //para habilitar/deshabilitar boton iniciar sesion
-    private fun recomputeLoginCanSubmit(){
-        val s = _login.value
-        // Verifica que NO haya error de email y que ambos campos tengan texto
-        val can = s.emailError == null && s.email.isNotBlank() && s.pass.isNotBlank()
-        _login.update { it.copy(canSubmit = can) }
+    // --- EVENTOS DE CAMBIO DE TEXTO (Limpian errores al escribir) ---
+    fun onLoginEmailChange(text: String) {
+        _state.update { it.copy(loginEmail = text, loginError = null) }
+    }
+    fun onLoginPassChange(text: String) {
+        _state.update { it.copy(loginPass = text, loginError = null) }
+    }
+    fun onRegNameChange(text: String) {
+        _state.update { it.copy(regName = text, regNameError = null) }
+    }
+    fun onRegEmailChange(text: String) {
+        _state.update { it.copy(regEmail = text, regEmailError = null) }
+    }
+    fun onRegPassChange(text: String) {
+        _state.update { it.copy(regPass = text, regPassError = null) }
+    }
+    fun onRegConfirmChange(text: String) {
+        _state.update { it.copy(regConfirm = text, regConfirmError = null) }
     }
 
-    //unir las validaciones a sus respectivos campos
-    fun onLoginEmailChange(value: String){
-        _login.update { it.copy(email = value, emailError = validateEmail(value)) }
-        recomputeLoginCanSubmit()
-    }
-    fun onLoginPassChange(value: String){
-        // Cambia it.copy(email = value) por it.copy(pass = value)
-        _login.update { it.copy(pass = value) }
-        recomputeLoginCanSubmit()
-    }
+    // --- LOGIN ---
+    fun login() {
+        val email = _state.value.loginEmail.trim()
+        val pass = _state.value.loginPass.trim()
 
-    fun submitLogin(){
-        val s = _login.value //guardo os datos actuales del formulario
-        //verifico si ya se esta ejecutando para no ejecutar denuevo
-        if(!s.canSubmit || s.isSubmitting) return
-        //ejecuto una corutina
+        if (email.isBlank() || pass.isBlank()) {
+            _state.update { it.copy(loginError = "Por favor llena todos los campos") }
+            return
+        }
+
         viewModelScope.launch {
-            _login.update { it.copy(isSubmitting = true, errorMsg = null, success = false) }
-            delay(2000)
-            //buscar en memoria si los datos son correctos
-            val result = repository.login(s.email.trim(),s.pass)
-
-            //actualizamos los datos del state del formulario
-            _login.update {
-                if (result.isSuccess){
-                    it.copy(isSubmitting = false, success = true, errorMsg = null)
-                }else{
-                    it.copy(isSubmitting = false, success = false,
-                        errorMsg = result.exceptionOrNull()?.message ?: "error de autenticacion")
+            _state.update { it.copy(isLoading = true) }
+            try {
+                val user = userDao.getUserByEmail(email)
+                if (user != null && user.password == pass) {
+                    _currentUser.value = user
+                    _state.update { it.copy(isLoginSuccess = true, isLoading = false) }
+                } else {
+                    _state.update { it.copy(loginError = "Credenciales incorrectas", isLoading = false) }
                 }
-            }
-
-        }
-    }
-
-    //limpiar campos al finalizar formulario
-    fun clearLoginResult(){
-        _login.update { it.copy(success = false, errorMsg = "") }
-    }
-
-
-    //REGISTRO
-    //para habilitar/deshabilitar boton registrar
-    private fun recomputeRegisterCanSubmit(){
-        val s = _register.value //obtenemos todos los datos actuales del formulario
-        val noErrors = listOf(s.nameError,s.emailError,
-            s.passError, s.confirmError).all { it == null }
-        val filled = s.name.isNotBlank() && s.email.isNotBlank()
-                && s.pass.isNotBlank() && s.confirm.isNotBlank()
-        _register.update { it.copy(canSubmit = noErrors && filled) }
-    }
-    fun onNameChange(value: String){
-        val x = value.filter { it.isLetter() || it.isWhitespace() }
-        _register.update {
-            it.copy(name = x, nameError = validateNameLettersOnly(x))
-        }
-        recomputeRegisterCanSubmit()
-    }
-    fun onRegisterEmailChange(value:String){
-        _register.update {
-            it.copy(email = value, emailError = validateEmail(value))
-        }
-        recomputeRegisterCanSubmit()
-    }
-
-    fun onRegisterPassChange(value: String) {
-        _register.update { it.copy(
-            pass = value,
-            passError = validateStringPassword(value)
-        )}
-        // Después de actualizar la pass, validamos si la confirmación sigue coincidiendo
-        _register.update {
-            it.copy(confirmError = validateConfirm(it.pass, it.confirm))
-        }
-        recomputeRegisterCanSubmit()
-    }
-    fun onConfirmChange(value: String){
-        _register.update {
-            it.copy(confirm = value, confirmError = validateConfirm(it.pass, value))
-        }
-        recomputeRegisterCanSubmit()
-    }
-    fun submitRegister(){
-        val s = _register.value
-        if(!s.canSubmit || s.isSubmitting) return
-        viewModelScope.launch {
-            _register.update { it.copy(isSubmitting = true, errorMsg = null, success = false) }
-            delay(2000)
-            //existe el usuario????
-            val result = repository.register(
-                name = s.name,
-                email = s.email,
-                password = s.pass
-            )
-            _register.update {
-                if (result.isSuccess){
-                    it.copy(isSubmitting = false, success = true, errorMsg = null)
-                }else{
-                    it.copy(isSubmitting = false, success = false,
-                        errorMsg = result.exceptionOrNull()?.message ?: "no se pudo registrar")
-                }
-
+            } catch (e: Exception) {
+                _state.update { it.copy(loginError = "Error al conectar", isLoading = false) }
             }
         }
     }
 
+    // --- REGISTRO CON VALIDACIONES ---
+    fun register() {
+        val s = _state.value
+        var hasError = false
 
+        // Validaciones
+        if (s.regName.isBlank()) {
+            _state.update { it.copy(regNameError = "El nombre es obligatorio") }
+            hasError = true
+        }
+        if (s.regEmail.isBlank()) {
+            _state.update { it.copy(regEmailError = "El correo es obligatorio") }
+            hasError = true
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(s.regEmail).matches()) {
+            _state.update { it.copy(regEmailError = "Formato de correo inválido") }
+            hasError = true
+        }
+        if (s.regPass.length < 4) {
+            _state.update { it.copy(regPassError = "Mínimo 4 caracteres") }
+            hasError = true
+        }
+        if (s.regPass != s.regConfirm) {
+            _state.update { it.copy(regConfirmError = "Las contraseñas no coinciden") }
+            hasError = true
+        }
 
+        if (hasError) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            try {
+                val existing = userDao.getUserByEmail(s.regEmail.trim())
+                if (existing != null) {
+                    _state.update { it.copy(regEmailError = "Este correo ya existe", isLoading = false) }
+                } else {
+                    val newUser = UserEntity(
+                        name = s.regName.trim(),
+                        email = s.regEmail.trim(),
+                        password = s.regPass,
+                        bio = "Nuevo usuario",
+                        profilePictureUri = null
+                    )
+                    userDao.insertUser(newUser)
+                    _currentUser.value = userDao.getUserByEmail(s.regEmail.trim())
+                    _state.update { it.copy(isRegisterSuccess = true, isLoading = false) }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    // --- ESTA ES LA FUNCIÓN QUE FALTABA ---
+    fun logout() {
+        _currentUser.value = null
+        // Reiniciamos el estado para que los campos de texto se borren
+        _state.value = AuthState()
+    }
+
+    fun clearStates() {
+        _state.value = AuthState()
+    }
+    fun updateProfile(userId: Long, newBio: String, newPhotoUri: String?) {
+        viewModelScope.launch {
+            try {
+                // 1. Actualizar en Base de Datos
+                userDao.updateUserProfile(userId, newBio, newPhotoUri)
+
+                // 2. Refrescar el usuario en la app (para que se vea el cambio al instante)
+                val updatedUser = userDao.getUserByEmail(_currentUser.value!!.email)
+                _currentUser.value = updatedUser
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }

@@ -6,22 +6,24 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 @Dao
-@JvmSuppressWildcards
 interface UserDao {
+    // 1. Insertar usuario (Registro)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUser(user: UserEntity)
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertar(user: UserEntity): Long
-
-    //busca los datos del usuario con un correo en especifico
+    // 2. Obtener por Email (Login)
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
-    suspend fun getByEmail(email: String): UserEntity?
+    suspend fun getUserByEmail(email: String): UserEntity?
 
-    //buscar todos los usuarios
-    @Query("SELECT * FROM users ORDER BY id ASC")
-    suspend fun getAll(): List<UserEntity>
+    // 3. Obtener por ID (Para refrescar perfil tras cambios)
+    @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
+    suspend fun getUserById(id: Long): UserEntity?
 
-    //contar cuantos usuarios existen
+    // 4. Actualizar Perfil (Bio y Foto)
+    @Query("UPDATE users SET bio = :bio, profilePictureUri = :photoUri WHERE id = :userId")
+    suspend fun updateUserProfile(userId: Long, bio: String, photoUri: String?)
+
+    // 5. Contar usuarios (Para inicializar DB)
     @Query("SELECT COUNT(*) FROM users")
-    suspend fun count(): Int
-
+    suspend fun countUsers(): Int
 }

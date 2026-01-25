@@ -3,44 +3,49 @@ package com.example.hatestuff3.data.local.database.repository
 import com.example.hatestuff3.data.local.database.user.UserDao
 import com.example.hatestuff3.data.local.database.user.UserEntity
 
-class UserRepository (
-    private val userDao: UserDao
-){
-    //ejecutar el login o inicio sesion
-    suspend fun login(email: String, pass: String): Result<UserEntity>{
-        //verificar si el correo existe
-        val user = userDao.getByEmail(email)
-        return if (user != null && user.password == pass){
-            Result.success(user)
-        }else{
-            Result.failure(IllegalStateException("Credenciales invalidas"))
+class UserRepository(private val userDao: UserDao) {
+
+    // Login: Busca por email y verifica contraseña manualmente
+    suspend fun login(email: String, pass: String): Result<UserEntity> {
+        return try {
+            val user = userDao.getUserByEmail(email) // Nombre correcto del DAO
+            if (user != null && user.password == pass) {
+                Result.success(user)
+            } else {
+                Result.failure(Exception("Credenciales inválidas"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-
-
-    //ejecutar el registro de un usuario nuevo
-    suspend fun register(name: String, email: String,  password: String):Result<Long>{
-        //verificar si ya existe el usuario (por correo)
-        val exists = userDao.getByEmail(email) != null
-        if(exists){
-            return Result.failure(IllegalArgumentException("el correo ya esta en uso"))
-
-        } else{
-            val id = userDao.insertar(
-                UserEntity(
-                    name = name,
-                    email = email,
-                    password = password
-
-                )
-            )
-            return Result.success(id)
+    // Registro: Usa insertUser
+    suspend fun register(user: UserEntity): Result<UserEntity> {
+        return try {
+            val exists = userDao.getUserByEmail(user.email)
+            if (exists != null) {
+                Result.failure(Exception("El usuario ya existe"))
+            } else {
+                userDao.insertUser(user) // Nombre correcto del DAO
+                Result.success(user)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
+    // Actualizar perfil: Usa updateUserProfile
+    suspend fun updateProfile(userId: Long, bio: String, photoUri: String?): Result<Boolean> {
+        return try {
+            userDao.updateUserProfile(userId, bio, photoUri) // Nombre correcto del DAO
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
-    //modificar un usuario o eliminar un usuario (investigar)
-
-
+    // Función auxiliar para obtener usuario actualizado
+    suspend fun getUserById(id: Long): UserEntity? {
+        return userDao.getUserById(id)
+    }
 }

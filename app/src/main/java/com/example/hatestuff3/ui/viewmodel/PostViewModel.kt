@@ -1,50 +1,70 @@
 package com.example.hatestuff3.ui.viewmodel
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.hatestuff3.data.local.database.post.CommentDao
+import com.example.hatestuff3.data.local.database.post.CommentEntity
+import com.example.hatestuff3.data.local.database.post.PostDao
 import com.example.hatestuff3.data.local.database.post.PostEntity
-import com.example.hatestuff3.data.local.database.repository.PostRepository
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class PostViewModel(private val repository: PostRepository) : ViewModel() {
+class PostViewModel(private val postDao: PostDao,private val commentDao: CommentDao) : ViewModel() {
 
-    private val _posts = MutableStateFlow<List<PostEntity>>(emptyList())
-    val posts: StateFlow<List<PostEntity>> = _posts.asStateFlow()
+    // ESTO ES LO QUE BUSCA TU HOMESCREEN: 'allPosts'
+    val allPosts: StateFlow<List<PostEntity>> = postDao.getAllPosts()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
-    init {
-        // Al usar .collect sobre el Flow del repositorio, la lista se actualiza
-        // automáticamente cada vez que alguien publica algo nuevo.
+    fun submitPost(content: String, imageUri: String?, userName: String, onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
-            repository.allPosts.collect { listaActualizada ->
-                _posts.value = listaActualizada
+            try {
+                val newPost = PostEntity(
+                    // NO pongas userId (ya no existe)
+                    // NO pongas id (se genera solo)
+                    userName = userName,
+                    content = content,
+                    imageUri = imageUri,
+                    creationTime = System.currentTimeMillis(), // Antes era timestamp
+                    likes = 0
+                )
+                // Faltaba esto:
+                postDao.insertPost(newPost)
+                onSuccess()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onError()
             }
         }
     }
-
-    /**
-     * Función para publicar posts híbridos (Texto + Foto opcional)
-     * Coincide con la llamada desde AppNavGraph.
-     */
-    fun submitPost(content: String, uri: Uri?) { // El parámetro se llama 'content'
+    // Función para dar Like recibiendo solo el ID
+    fun likePost(post: PostEntity) {
         viewModelScope.launch {
-            val nuevoPost = PostEntity(
-                authorId = 1,
-                authorName = "Usuario",
-                content = content,          // CAMBIO: Antes decía 'contenido', ahora 'content'
-                imageUri = uri?.toString()
-            )
-            repository.createPost(nuevoPost)
+            // Creamos una copia con un like más
+            val updatedPost = post.copy(likes = post.likes + 1)
+            postDao.updatePost(updatedPost)
         }
     }
+    // Obtener comentarios de un post específico
+    fun getComments(postId: Long): Flow<List<CommentEntity>> {
+        return commentDao.getCommentsForPost(postId)
+    }
 
-    // Mantengo tu lógica de likes
-    fun darLike(postId: Int) {
+    // Enviar comentario
+    fun sendComment(postId: Long, text: String, userName: String) {
         viewModelScope.launch {
-            repository.likePost(postId)
+            val comment = CommentEntity(
+                postId = postId,
+                userName = userName,
+                text = text
+            )
+            commentDao.insertComment(comment)
         }
     }
 }

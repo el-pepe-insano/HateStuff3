@@ -2,9 +2,12 @@ package com.example.hatestuff3.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -26,119 +29,140 @@ fun LoginScreen(
     onLoginOkNavigateHome: () -> Unit,
     onGoRegister: () -> Unit
 ) {
-    val DarkBackground = Color(0xFF121212)
-    val BloodRed = Color(0xFFC62828)
-    val TextWhite = Color.White
-    val TextLightGray = Color(0xFFB0B0B0)
+    // 1. Observamos el estado completo del ViewModel
+    val state by vm.state.collectAsState()
 
-    // --- CONEXIÓN AL VIEWMODEL ---
-    val state by vm.login.collectAsState()
+    // Variables solo de UI (visibilidad de contraseña)
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // --- LÓGICA DE NAVEGACIÓN SEGURA ---
-    // Solo cambia de pantalla si el ViewModel confirma que los datos son correctos
-    LaunchedEffect(state.success) {
-        if (state.success) {
+    // 2. Efecto de Navegación
+    LaunchedEffect(state.isLoginSuccess) {
+        if (state.isLoginSuccess) {
             onLoginOkNavigateHome()
-            vm.clearLoginResult() // Limpia el estado para la próxima vez
+            // Opcional: Limpiar estado al salir, aunque AuthViewModel.logout() lo hace
         }
     }
 
+    // Colores del tema HateStuff
+    val hateRed = Color(0xFFC62828)
+    val textWhite = Color.White
+    val textGray = Color.Gray
+
     val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = TextWhite,
-        unfocusedTextColor = TextWhite,
-        focusedBorderColor = BloodRed,
-        unfocusedBorderColor = TextLightGray,
-        focusedLabelColor = BloodRed,
-        unfocusedLabelColor = TextLightGray,
-        cursorColor = BloodRed
+        focusedTextColor = textWhite,
+        unfocusedTextColor = textWhite,
+        focusedBorderColor = hateRed,
+        unfocusedBorderColor = textGray,
+        focusedLabelColor = hateRed,
+        unfocusedLabelColor = textGray,
+        cursorColor = hateRed,
+        errorBorderColor = Color.Red,
+        errorLabelColor = Color.Red
     )
 
-    Box(
-        modifier = Modifier.fillMaxSize().background(DarkBackground),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()), // Habilitar scroll para pantallas pequeñas
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "HateStuff",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = BloodRed,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+        // Título
+        Text(
+            text = "HATE STUFF",
+            color = hateRed,
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 2.sp
+        )
 
-                // Mensaje de error si las credenciales fallan
-                if (state.errorMsg != null) {
-                    Text(text = state.errorMsg!!, color = Color.Red, fontSize = 14.sp)
-                }
+        Spacer(modifier = Modifier.height(8.dp))
 
-                // Campo Correo conectado al VM
-                OutlinedTextField(
-                    value = state.email,
-                    onValueChange = { vm.onLoginEmailChange(it) },
-                    label = { Text("Correo") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = textFieldColors,
-                    isError = state.emailError != null,
-                    supportingText = { if(state.emailError != null) Text(state.emailError!!) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                )
+        Text(
+            text = "Bienvenido al odio",
+            color = textGray,
+            fontSize = 16.sp
+        )
 
-                // Campo Contraseña conectado al VM
-                OutlinedTextField(
-                    value = state.pass,
-                    onValueChange = { vm.onLoginPassChange(it) },
-                    label = { Text("Contraseña") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = null,
-                                tint = TextWhite
-                            )
-                        }
-                    },
-                    colors = textFieldColors,
-                    singleLine = true
-                )
+        Spacer(modifier = Modifier.height(48.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
+        // Muestra error general si existe (ej: "Credenciales incorrectas")
+        if (state.loginError != null) {
+            Text(
+                text = state.loginError!!,
+                color = Color.Red,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
 
-                // Botón ENTRAR con estado de carga
-                Button(
-                    onClick = { vm.submitLogin() }, // Llama a la validación real
-                    enabled = state.canSubmit && !state.isSubmitting,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BloodRed,
-                        disabledContainerColor = Color.DarkGray
+        // --- Campo Email ---
+        OutlinedTextField(
+            value = state.loginEmail, // Viene del VM
+            onValueChange = { vm.onLoginEmailChange(it) }, // Va al VM
+            label = { Text("Email") },
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = textGray) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            isError = state.loginError != null, // Se pone rojo si hay error
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // --- Campo Password ---
+        OutlinedTextField(
+            value = state.loginPass, // Viene del VM
+            onValueChange = { vm.onLoginPassChange(it) }, // Va al VM
+            label = { Text("Contraseña") },
+            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = textGray) },
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = "Ver password",
+                        tint = textGray
                     )
-                ) {
-                    if (state.isSubmitting) {
-                        CircularProgressIndicator(color = TextWhite, modifier = Modifier.size(24.dp))
-                    } else {
-                        Text("ENTRAR", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
                 }
+            },
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            singleLine = true,
+            isError = state.loginError != null,
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-                TextButton(onClick = onGoRegister) {
-                    Text("¿No tienes cuenta? Regístrate aquí", color = TextWhite)
-                }
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // --- Botón Login ---
+        Button(
+            onClick = { vm.login() }, // Llamada sin argumentos
+            enabled = !state.isLoading, // Desactivar si está cargando
+            colors = ButtonDefaults.buttonColors(
+                containerColor = hateRed,
+                contentColor = textWhite,
+                disabledContainerColor = Color.DarkGray
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            if (state.isLoading) {
+                CircularProgressIndicator(color = textWhite, modifier = Modifier.size(24.dp))
+            } else {
+                Text("ENTRAR", fontWeight = FontWeight.Bold)
             }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Botón ir a Registro
+        TextButton(onClick = onGoRegister) {
+            Text("¿No tienes cuenta? Únete al lado oscuro", color = textGray)
         }
     }
 }

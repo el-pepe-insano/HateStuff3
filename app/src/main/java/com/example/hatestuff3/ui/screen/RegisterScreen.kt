@@ -28,25 +28,29 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onBackToLogin: () -> Unit
 ) {
-    // --- SOLUCIÓN: Nombres ÚNICOS para evitar conflictos ---
-    val RegBackground = Color(0xFF121212)  // Antes DarkBackground
-    val RegCardBg = Color(0xFF1E1E1E)      // Antes CardBackground
-    val RegBloodRed = Color(0xFFC62828)    // Antes BloodRed
+    // 1. Colores Estilo HateStuff
+    val RegBackground = Color(0xFF121212)
+    val RegCardBg = Color(0xFF1E1E1E)
+    val RegBloodRed = Color(0xFFC62828)
     val RegTextWhite = Color.White
     val RegTextGray = Color(0xFFB0B0B0)
 
-    val state by vm.register.collectAsState()
+    // 2. Observamos el Estado Único del ViewModel
+    val state by vm.state.collectAsState()
+
+    // 3. Variables locales solo para UI (visibilidad de password)
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
-    val scrollState = rememberScrollState()
 
-    LaunchedEffect(state.success) {
-        if (state.success) {
+    // 4. Efecto de Navegación
+    LaunchedEffect(state.isRegisterSuccess) {
+        if (state.isRegisterSuccess) {
             onRegisterSuccess()
+            vm.clearStates() // Limpiamos formulario al salir
         }
     }
 
-    // Configuración de colores usando los nombres NUEVOS
+    // Configuración de colores de inputs
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = RegTextWhite,
         unfocusedTextColor = RegTextWhite,
@@ -61,16 +65,11 @@ fun RegisterScreen(
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(RegBackground), // Usamos RegBackground
+        modifier = Modifier.fillMaxSize().background(RegBackground),
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .verticalScroll(scrollState),
+            modifier = Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = RegCardBg),
             elevation = CardDefaults.cardElevation(8.dp)
@@ -84,42 +83,42 @@ fun RegisterScreen(
                     text = "Crear Cuenta",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = RegBloodRed // Usamos RegBloodRed
+                    color = RegBloodRed
                 )
 
-                if (state.errorMsg != null) {
-                    Text(text = state.errorMsg!!, color = Color.Red, fontSize = 14.sp)
-                }
-
-                // NOMBRE
+                // --- NOMBRE DE USUARIO ---
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = { vm.onNameChange(it) },
+                    value = state.regName,
+                    onValueChange = { vm.onRegNameChange(it) },
                     label = { Text("Nombre de usuario") },
                     modifier = Modifier.fillMaxWidth(),
-                    isError = state.nameError != null,
-                    supportingText = { if(state.nameError != null) Text(state.nameError!!) },
+                    isError = state.regNameError != null, // Activa el borde rojo
+                    supportingText = {
+                        if (state.regNameError != null) Text(state.regNameError!!)
+                    },
                     singleLine = true,
                     colors = textFieldColors
                 )
 
-                // CORREO
+                // --- EMAIL ---
                 OutlinedTextField(
-                    value = state.email,
-                    onValueChange = { vm.onRegisterEmailChange(it) },
+                    value = state.regEmail,
+                    onValueChange = { vm.onRegEmailChange(it) },
                     label = { Text("Correo electrónico") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    isError = state.emailError != null,
-                    supportingText = { if(state.emailError != null) Text(state.emailError!!) },
+                    isError = state.regEmailError != null,
+                    supportingText = {
+                        if (state.regEmailError != null) Text(state.regEmailError!!)
+                    },
                     singleLine = true,
                     colors = textFieldColors
                 )
 
-                // CONTRASEÑA
+                // --- PASSWORD ---
                 OutlinedTextField(
-                    value = state.pass,
-                    onValueChange = { vm.onRegisterPassChange(it) },
+                    value = state.regPass,
+                    onValueChange = { vm.onRegPassChange(it) },
                     label = { Text("Contraseña") },
                     modifier = Modifier.fillMaxWidth(),
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -128,21 +127,23 @@ fun RegisterScreen(
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = "Ver contraseña",
+                                contentDescription = null,
                                 tint = RegTextWhite
                             )
                         }
                     },
-                    isError = state.passError != null,
-                    supportingText = { if(state.passError != null) Text(state.passError!!) },
+                    isError = state.regPassError != null,
+                    supportingText = {
+                        if (state.regPassError != null) Text(state.regPassError!!)
+                    },
                     singleLine = true,
                     colors = textFieldColors
                 )
 
-                // CONFIRMAR CONTRASEÑA
+                // --- CONFIRM PASSWORD ---
                 OutlinedTextField(
-                    value = state.confirm,
-                    onValueChange = { vm.onConfirmChange(it) },
+                    value = state.regConfirm,
+                    onValueChange = { vm.onRegConfirmChange(it) },
                     label = { Text("Confirmar Contraseña") },
                     modifier = Modifier.fillMaxWidth(),
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -151,39 +152,38 @@ fun RegisterScreen(
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                             Icon(
                                 imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = "Ver confirmación",
+                                contentDescription = null,
                                 tint = RegTextWhite
                             )
                         }
                     },
-                    isError = state.confirmError != null,
-                    supportingText = { if(state.confirmError != null) Text(state.confirmError!!) },
+                    isError = state.regConfirmError != null,
+                    supportingText = {
+                        if (state.regConfirmError != null) Text(state.regConfirmError!!)
+                    },
                     singleLine = true,
                     colors = textFieldColors
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // BOTÓN REGISTRAR
+                // --- BOTÓN REGISTRAR ---
                 Button(
-                    onClick = { vm.submitRegister() },
-                    enabled = state.canSubmit && !state.isSubmitting,
+                    onClick = { vm.register() }, // Delegamos toda la lógica al VM
+                    enabled = !state.isLoading,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state.canSubmit) RegBloodRed else Color.DarkGray,
-                        contentColor = RegTextWhite,
-                        disabledContainerColor = Color.DarkGray,
-                        disabledContentColor = RegTextGray
+                        containerColor = RegBloodRed,
+                        contentColor = RegTextWhite
                     )
                 ) {
-                    if (state.isSubmitting) {
-                        CircularProgressIndicator(color = RegTextWhite, modifier = Modifier.size(24.dp))
+                    if (state.isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     } else {
                         Text("REGISTRARME", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                // Botón volver
                 TextButton(onClick = onBackToLogin) {
                     Text("¿Ya tienes cuenta? Inicia sesión", color = RegTextWhite)
                 }
