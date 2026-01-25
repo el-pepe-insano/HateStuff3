@@ -18,11 +18,13 @@ import androidx.navigation.compose.composable
 import com.example.hatestuff3.ui.components.AppDrawer
 import com.example.hatestuff3.ui.components.AppTopBar
 import com.example.hatestuff3.ui.components.defaultDrawerItems
+import com.example.hatestuff3.ui.screen.AdminUsersScreen
 import com.example.hatestuff3.ui.screen.CreatePostScreen
 import com.example.hatestuff3.ui.screen.HomeScreen
 import com.example.hatestuff3.ui.screen.LoginScreen
 import com.example.hatestuff3.ui.screen.ProfileScreen
 import com.example.hatestuff3.ui.screen.RegisterScreen
+import com.example.hatestuff3.ui.viewmodel.AdminViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import kotlinx.coroutines.launch
@@ -31,7 +33,8 @@ import kotlinx.coroutines.launch
 fun AppNavGraph(
     navController: NavHostController,
     authViewModel: AuthViewModel,
-    postViewModel: PostViewModel
+    postViewModel: PostViewModel,
+    adminViewModel: AdminViewModel // <--- Agregado para la gestión de usuarios
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
 
@@ -73,6 +76,7 @@ fun AppNavGraph(
         composable(Route.Home.path) {
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
+            val userInHome by authViewModel.currentUser.collectAsState()
 
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -91,7 +95,6 @@ fun AppNavGraph(
                                 scope.launch {
                                     drawerState.close()
                                     authViewModel.logout()
-                                    // Limpiamos la pila al salir
                                     navController.navigate(Route.Login.path) {
                                         popUpTo(0)
                                     }
@@ -105,15 +108,22 @@ fun AppNavGraph(
                     topBar = {
                         AppTopBar(
                             onOpenDrawer = { scope.launch { drawerState.open() } },
-                            onHome = null, onLogin = null, onRegister = null
+                            onHome = null,
+                            onLogin = null,
+                            onRegister = null
                         )
                     }
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
                         HomeScreen(
                             postViewModel = postViewModel,
+                            authViewModel = authViewModel,
                             onCreatePostClick = {
                                 navController.navigate(Route.NewPost.path)
+                            },
+                            // Aquí es donde pasamos la navegación a admin si tu HomeScreen lo requiere
+                            onNavigateToAdmin = {
+                                navController.navigate("admin_users")
                             }
                         )
                     }
@@ -123,7 +133,6 @@ fun AppNavGraph(
 
         // 4. PERFIL
         composable(Route.Profile.path) {
-            // Verificación extra de seguridad
             if (currentUser != null) {
                 ProfileScreen(
                     authViewModel = authViewModel,
@@ -136,7 +145,6 @@ fun AppNavGraph(
                     }
                 )
             } else {
-                // Si no hay usuario, volver al login
                 LaunchedEffect(Unit) {
                     navController.navigate(Route.Login.path) { popUpTo(0) }
                 }
@@ -150,26 +158,28 @@ fun AppNavGraph(
             CreatePostScreen(
                 onPostCreated = { content, imageUri ->
                     userState?.let { user ->
-                        // --- CORRECCIÓN AQUÍ ---
-                        // Adaptado al nuevo PostViewModel con validaciones
                         postViewModel.submitPost(
                             content = content,
                             imageUri = imageUri?.toString(),
-                            userName = user.name, // Ya no usamos userId
+                            userName = user.name,
                             onSuccess = {
-                                // Solo volvemos si se guardó correctamente
                                 navController.popBackStack()
                             },
-                            onError = {
-                                // Opcional: Aquí podrías mostrar un aviso si falla
-                                // Por ahora no hacemos nada para mantenerlo simple
-                            }
+                            onError = { }
                         )
                     }
                 },
                 onCancel = {
                     navController.popBackStack()
                 }
+            )
+        }
+
+        // 6. ADMINISTRACIÓN (PANTALLA DE USUARIOS)
+        composable("admin_users") {
+            AdminUsersScreen(
+                adminViewModel = adminViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
     }

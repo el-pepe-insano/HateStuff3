@@ -1,6 +1,7 @@
 package com.example.hatestuff3.data.local.database.post
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -30,4 +31,7 @@ interface PostDao {
 
     @Update
     suspend fun updatePost(post: PostEntity)
+
+    @Delete
+    suspend fun deletePost(post: PostEntity)
 }

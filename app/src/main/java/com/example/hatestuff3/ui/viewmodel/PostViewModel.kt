@@ -67,4 +67,14 @@ class PostViewModel(private val postDao: PostDao,private val commentDao: Comment
             commentDao.insertComment(comment)
         }
     }
+    fun deletePost(post: PostEntity) {
+        viewModelScope.launch {
+            postDao.deletePost(post)
+        }
+    }
+    fun deleteComment(comment: CommentEntity) {
+        viewModelScope.launch {
+            commentDao.deleteComment(comment)
+        }
+    }
 }

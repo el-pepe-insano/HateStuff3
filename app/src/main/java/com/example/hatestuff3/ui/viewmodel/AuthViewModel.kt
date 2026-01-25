@@ -88,7 +88,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
         }
     }
 
-    // --- REGISTRO CON VALIDACIONES ---
+    // --- REGISTRO CON VALIDACIONES Y ROLES ---
     fun register() {
         val s = _state.value
         var hasError = false
@@ -123,14 +123,27 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
                 if (existing != null) {
                     _state.update { it.copy(regEmailError = "Este correo ya existe", isLoading = false) }
                 } else {
+                    // --- LÓGICA DE ROLES AQUÍ ---
+                    val emailLower = s.regEmail.trim().lowercase()
+                    val assignedRole = when {
+                        emailLower.contains("admin") -> "ADMIN"
+                        emailLower.contains("mod") -> "MOD"
+                        else -> "USER"
+                    }
+
+                    // Creamos el usuario con el rol detectado
                     val newUser = UserEntity(
                         name = s.regName.trim(),
                         email = s.regEmail.trim(),
                         password = s.regPass,
+                        role = assignedRole, // <--- Guardamos el rol
                         bio = "Nuevo usuario",
                         profilePictureUri = null
                     )
+
                     userDao.insertUser(newUser)
+
+                    // Iniciamos sesión automáticamente tras el registro
                     _currentUser.value = userDao.getUserByEmail(s.regEmail.trim())
                     _state.update { it.copy(isRegisterSuccess = true, isLoading = false) }
                 }
@@ -140,7 +153,6 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
         }
     }
 
-    // --- ESTA ES LA FUNCIÓN QUE FALTABA ---
     fun logout() {
         _currentUser.value = null
         // Reiniciamos el estado para que los campos de texto se borren
@@ -150,6 +162,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
     fun clearStates() {
         _state.value = AuthState()
     }
+
     fun updateProfile(userId: Long, newBio: String, newPhotoUri: String?) {
         viewModelScope.launch {
             try {
@@ -157,8 +170,11 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
                 userDao.updateUserProfile(userId, newBio, newPhotoUri)
 
                 // 2. Refrescar el usuario en la app (para que se vea el cambio al instante)
-                val updatedUser = userDao.getUserByEmail(_currentUser.value!!.email)
-                _currentUser.value = updatedUser
+                // Obtenemos el usuario actualizado usando el email actual
+                _currentUser.value?.email?.let { email ->
+                    val updatedUser = userDao.getUserByEmail(email)
+                    _currentUser.value = updatedUser
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

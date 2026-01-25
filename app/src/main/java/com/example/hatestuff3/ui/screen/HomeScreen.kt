@@ -19,24 +19,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.hatestuff3.data.local.database.post.PostEntity
+import com.example.hatestuff3.data.local.database.user.UserEntity
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
+import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     postViewModel: PostViewModel,
-    onCreatePostClick: () -> Unit
-    // Quitamos onCommentClick de aquí porque lo manejamos internamente con el BottomSheet
+    authViewModel: AuthViewModel,
+    onCreatePostClick: () -> Unit,
+    onNavigateToAdmin: () -> Unit
 ) {
-    // 1. Estado de los posts
     val posts by postViewModel.allPosts.collectAsState(initial = emptyList())
+    val currentUser by authViewModel.currentUser.collectAsState()
 
-    // 2. Estados para la ventana de comentarios (BottomSheet)
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostEntity?>(null) }
 
-    // Colores
     val BackgroundColor = Color.Black
     val HateRed = Color(0xFFD32F2F)
 
@@ -51,8 +52,15 @@ fun HomeScreen(
                     containerColor = Color(0xFF121212)
                 ),
                 actions = {
-                    IconButton(onClick = { /* Menú opcional */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = Color.White)
+                    // ESCUDO AHORA EN BLANCO
+                    if (currentUser?.role == "ADMIN") {
+                        IconButton(onClick = onNavigateToAdmin) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "Panel Admin",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             )
@@ -75,7 +83,6 @@ fun HomeScreen(
                 .background(BackgroundColor)
         ) {
             if (posts.isEmpty()) {
-                // ESTADO VACÍO
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -91,7 +98,6 @@ fun HomeScreen(
                     Text("Nadie se ha quejado aún...", color = Color.Gray)
                 }
             } else {
-                // LISTA DE POSTS
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -100,11 +106,14 @@ fun HomeScreen(
                     items(posts, key = { it.id }) { post ->
                         PostItem(
                             post = post,
+                            currentUser = currentUser,
                             onLikeClick = { postViewModel.likePost(post) },
                             onCommentClick = {
-                                // Al hacer clic en comentar, guardamos el post y abrimos la ventana
                                 selectedPost = post
                                 showBottomSheet = true
+                            },
+                            onDeleteClick = {
+                                postViewModel.deletePost(post)
                             }
                         )
                     }
@@ -112,32 +121,41 @@ fun HomeScreen(
             }
         }
 
-        // --- VENTANA DESLIZANTE DE COMENTARIOS (BottomSheet) ---
-        if (showBottomSheet && selectedPost != null) {
+        if (showBottomSheet && selectedPost != null && currentUser != null) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
                 sheetState = sheetState,
-                containerColor = Color(0xFF1E1E1E) // Fondo gris oscuro
+                containerColor = Color(0xFF1E1E1E)
             ) {
                 CommentSection(
                     post = selectedPost!!,
-                    viewModel = postViewModel
+                    viewModel = postViewModel,
+                    currentUser = currentUser!!
                 )
             }
         }
     }
 }
 
-// --- COMPONENTE TARJETA DE POST ---
 @Composable
 fun PostItem(
     post: PostEntity,
+    currentUser: UserEntity?,
     onLikeClick: () -> Unit,
-    onCommentClick: () -> Unit // Recibimos el evento de clic
+    onCommentClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     val DarkCardColor = Color(0xFF1E1E1E)
     val HateRed = Color(0xFFD32F2F)
     val TextGray = Color(0xFFB0B0B0)
+
+    // LÓGICA DE SEGURIDAD CORREGIDA: Solo Admin o el dueño borran
+    val canDelete = when {
+        currentUser?.role == "ADMIN" -> true
+        currentUser?.role == "MOD" -> true
+        currentUser?.name == post.userName -> true
+        else -> false
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -150,7 +168,6 @@ fun PostItem(
                 .padding(16.dp)
                 .fillMaxWidth()
         ) {
-            // Cabecera
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Person,
@@ -172,18 +189,24 @@ fun PostItem(
                         color = TextGray
                     )
                 }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                if (canDelete) {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = Color.Gray)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Contenido Texto
             Text(
                 text = post.content,
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.White
             )
 
-            // Contenido Imagen
             if (!post.imageUri.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
@@ -201,12 +224,10 @@ fun PostItem(
             Divider(color = Color(0xFF2C2C2C))
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Botones de Acción
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // LIKE
                 IconButton(onClick = onLikeClick) {
                     Icon(
                         imageVector = if (post.likes > 0) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -214,12 +235,10 @@ fun PostItem(
                         tint = HateRed
                     )
                 }
-                Text(text = "${post.likes} odios"
-                    , color = TextGray, fontWeight = FontWeight.Bold)
+                Text(text = "${post.likes} odios", color = TextGray, fontWeight = FontWeight.Bold)
 
                 Spacer(modifier = Modifier.width(24.dp))
 
-                // COMENTAR (Icono visible)
                 IconButton(onClick = onCommentClick) {
                     Icon(
                         imageVector = Icons.Default.Comment,
@@ -233,23 +252,20 @@ fun PostItem(
     }
 }
 
-// --- SECCIÓN DE COMENTARIOS (INTERNA DEL BOTTOM SHEET) ---
 @Composable
-fun CommentSection(post: PostEntity, viewModel: PostViewModel) {
+fun CommentSection(post: PostEntity, viewModel: PostViewModel, currentUser: UserEntity) {
     val commentsFlow = remember(post.id) { viewModel.getComments(post.id) }
     val comments by commentsFlow.collectAsState(initial = emptyList())
     var commentText by remember { mutableStateOf("") }
-
-    val myName = "Yo Mismo"
+    val myName = currentUser.name
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.9f) // Ocupa el 90% de la pantalla
-            .imePadding() // 1. CRÍTICO: Detecta el teclado y empuja el contenido
+            .fillMaxHeight(0.9f)
+            .imePadding()
             .padding(16.dp)
     ) {
-        // Cabecera
         Text(
             text = "Comentarios (${comments.size})",
             color = Color.White,
@@ -259,12 +275,9 @@ fun CommentSection(post: PostEntity, viewModel: PostViewModel) {
         )
         Divider(color = Color.DarkGray, thickness = 1.dp)
 
-        // Lista de Comentarios
         LazyColumn(
-            modifier = Modifier
-                .weight(1f) // Ocupa todo el espacio disponible, empujando el input abajo
-                .fillMaxWidth(),
-            reverseLayout = true, // Estilo chat (nuevos abajo)
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            reverseLayout = true,
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             if (comments.isEmpty()) {
@@ -275,26 +288,25 @@ fun CommentSection(post: PostEntity, viewModel: PostViewModel) {
                 }
             }
             items(comments) { comment ->
-                CommentBubble(comment)
+                CommentBubble(
+                    comment = comment,
+                    currentUser = currentUser,
+                    onDeleteClick = { viewModel.deleteComment(comment) }
+                )
             }
         }
 
-        // --- ZONA DE ESCRIBIR ---
-        // La envolvemos en un Surface para darle contraste si quieres, o solo Row
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 8.dp) // Un poco de aire arriba y abajo
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
         ) {
             TextField(
                 value = commentText,
                 onValueChange = { commentText = it },
                 placeholder = { Text("Escribe tu odio...", color = Color.Gray) },
                 modifier = Modifier.weight(1f),
-                // Colores para asegurar que se lea bien
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF1E1E1E), // Gris un poco más claro que el fondo
+                    focusedContainerColor = Color(0xFF1E1E1E),
                     unfocusedContainerColor = Color(0xFF1E1E1E),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
@@ -303,12 +315,9 @@ fun CommentSection(post: PostEntity, viewModel: PostViewModel) {
                     unfocusedIndicatorColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(24.dp),
-                maxLines = 4 // Permite ver hasta 4 líneas de texto mientras escribes
+                maxLines = 4
             )
-
             Spacer(modifier = Modifier.width(8.dp))
-
-            // Botón de Enviar
             IconButton(
                 onClick = {
                     if (commentText.isNotBlank()) {
@@ -316,46 +325,48 @@ fun CommentSection(post: PostEntity, viewModel: PostViewModel) {
                         commentText = ""
                     }
                 },
-                modifier = Modifier
-                    .background(Color(0xFFD32F2F), CircleShape)
-                    .size(48.dp)
+                modifier = Modifier.background(Color(0xFFD32F2F), CircleShape).size(48.dp)
             ) {
                 Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
             }
         }
-
-        // TRUCO EXTRA: Un pequeño espacio al final por si el teclado queda muy justo
         Spacer(modifier = Modifier.height(10.dp))
     }
 }
-// --- NUEVO COMPONENTE: GLOBO DE TEXTO ---
+
 @Composable
-fun CommentBubble(comment: com.example.hatestuff3.data.local.database.post.CommentEntity) {
-    // Definimos el color "Rojo Sangre" aquí
-    // 0xFF7F0000 es un rojo sangre fuerte (ni negro ni neón)
+fun CommentBubble(
+    comment: com.example.hatestuff3.data.local.database.post.CommentEntity,
+    currentUser: UserEntity?,
+    onDeleteClick: () -> Unit
+) {
     val BloodRed = Color(0xFF7F0000)
 
+    // LÓGICA DE PODERES PARA COMENTARIOS CORREGIDA
+    val canDelete = when {
+        currentUser?.role == "ADMIN" -> true
+        currentUser?.role == "MOD" -> true
+        currentUser?.name == comment.userName -> true
+        else -> false
+    }
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Avatar
         Icon(
-            Icons.Default.Person,
+            imageVector = Icons.Default.Person,
             contentDescription = null,
-            tint = Color(0xFFB71C1C), // Rojo un poco más vivo para el icono
+            tint = Color(0xFFB71C1C),
             modifier = Modifier.size(32.dp).padding(top = 4.dp)
         )
-
         Spacer(modifier = Modifier.width(8.dp))
 
-        // El Globo
         Column(
             modifier = Modifier
+                .weight(1f)
                 .background(
-                    color = BloodRed, // <--- AQUÍ ESTÁ EL NUEVO COLOR
+                    color = BloodRed,
                     shape = RoundedCornerShape(
                         topStart = 4.dp,
                         topEnd = 16.dp,
@@ -365,22 +376,30 @@ fun CommentBubble(comment: com.example.hatestuff3.data.local.database.post.Comme
                 )
                 .padding(12.dp)
         ) {
-            // Nombre del usuario
             Text(
                 text = comment.userName,
-                color = Color(0xFFFF8A80), // Un rojo/rosa pálido para el nombre (destaca sobre sangre)
+                color = Color(0xFFFF8A80),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodySmall
             )
-
             Spacer(modifier = Modifier.height(2.dp))
-
-            // Texto del comentario
             Text(
                 text = comment.text,
                 color = Color.White,
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+
+        // MOSTRAR PAPELERA SI TIENE PERMISO
+        if (canDelete) {
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Borrar comentario",
+                    tint = Color.DarkGray,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

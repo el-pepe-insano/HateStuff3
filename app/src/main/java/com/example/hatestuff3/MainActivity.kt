@@ -8,8 +8,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.hatestuff3.data.local.database.AppDatabase
 import com.example.hatestuff3.navigation.AppNavGraph
 import com.example.hatestuff3.ui.theme.HateStuff3Theme
+import com.example.hatestuff3.ui.viewmodel.AdminViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
-import com.example.hatestuff3.ui.viewmodel.AuthViewModelFactory // Asegúrate que tu Factory esté aquí o en ui.factory
+import com.example.hatestuff3.ui.viewmodel.AuthViewModelFactory
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 
 class MainActivity : ComponentActivity() {
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
         val combinedFactory = AuthViewModelFactory(
             userDao = database.userDao(),
             postDao = database.postDao(),
-            commentDao = database.commentDao() // <--- ESTO ES LO QUE FALTABA
+            commentDao = database.commentDao()
         )
 
         setContent {
@@ -35,12 +36,14 @@ class MainActivity : ComponentActivity() {
                 // La factory detectará automáticamente si necesitas Auth o Post
                 val authViewModel: AuthViewModel = viewModel(factory = combinedFactory)
                 val postViewModel: PostViewModel = viewModel(factory = combinedFactory)
+                val adminViewModel: AdminViewModel = viewModel(factory = combinedFactory)
 
                 // 4. Iniciar la navegación
                 AppNavGraph(
                     navController = navController,
                     authViewModel = authViewModel,
-                    postViewModel = postViewModel
+                    postViewModel = postViewModel,
+                    adminViewModel = adminViewModel
                 )
             }
         }
