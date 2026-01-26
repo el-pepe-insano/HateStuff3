@@ -8,7 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext // <--- IMPORTANTE PARA EL CONTEXTO
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -121,7 +121,7 @@ fun AppNavGraph(
             }
         }
 
-        // 4. PERFIL PROPIO
+        // 4. PERFIL PROPIO (MODIFICADO CON EL BOTÓN ATRÁS)
         composable(Route.Profile.path) {
             if (currentUser != null) {
                 ProfileScreen(
@@ -132,6 +132,10 @@ fun AppNavGraph(
                         navController.navigate(Route.Login.path) {
                             popUpTo(0)
                         }
+                    },
+                    // --- AQUÍ ESTÁ EL CAMBIO ---
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             } else {
@@ -141,19 +145,18 @@ fun AppNavGraph(
             }
         }
 
-        // 5. NEW POST (AQUÍ ESTÁ EL CAMBIO IMPORTANTE)
+        // 5. NEW POST
         composable(Route.NewPost.path) {
             val userState by authViewModel.currentUser.collectAsState()
 
-            // Obtenemos el contexto actual de la aplicación
+            // Contexto para guardar imágenes
             val context = LocalContext.current
 
             CreatePostScreen(
                 onPostCreated = { content, imageUri ->
                     userState?.let { user ->
-                        // Ahora pasamos el contexto a submitPost para guardar la imagen real
                         postViewModel.submitPost(
-                            context = context, // <--- ESTO ES LO NUEVO
+                            context = context,
                             content = content,
                             imageUri = imageUri?.toString(),
                             userName = user.name,
