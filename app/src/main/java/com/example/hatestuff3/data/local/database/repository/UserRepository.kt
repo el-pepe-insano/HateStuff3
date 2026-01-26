@@ -19,7 +19,7 @@ class UserRepository(private val userDao: UserDao) {
         }
     }
 
-    // Registro: Usa insertUser
+    // Registro:
     suspend fun register(user: UserEntity): Result<UserEntity> {
         return try {
             val exists = userDao.getUserByEmail(user.email)
@@ -34,7 +34,7 @@ class UserRepository(private val userDao: UserDao) {
         }
     }
 
-    // Actualizar perfil: Usa updateUserProfile
+    // Actualizar perfil
     suspend fun updateProfile(userId: Long, bio: String, photoUri: String?): Result<Boolean> {
         return try {
             userDao.updateUserProfile(userId, bio, photoUri) // Nombre correcto del DAO
@@ -44,7 +44,6 @@ class UserRepository(private val userDao: UserDao) {
         }
     }
 
-    // Función auxiliar para obtener usuario actualizado
     suspend fun getUserById(id: Long): UserEntity? {
         return userDao.getUserById(id)
     }

@@ -29,12 +29,10 @@ fun AppTopBar(
     onHome: (() -> Unit)? = null,
     onLogin: (() -> Unit)? = null,
     onAdminClick: (() -> Unit)? = null,
-    // NUEVOS PARÁMETROS: Para que la barra funcione de verdad
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    // Hemos eliminado 'var searchText' porque ahora el texto viene de fuera (del ViewModel)
 
     val hateBlack = Color(0xFF000000)
     val bloodRed = Color(0xFF8B0000)
@@ -50,7 +48,6 @@ fun AppTopBar(
         }
     ) {
         Column(modifier = Modifier.padding(bottom = 10.dp)) {
-            // PISO 1: LOGO
             Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
                 Image(
                     painter = painterResource(id = R.drawable.logoblanco),
@@ -60,7 +57,6 @@ fun AppTopBar(
                 )
             }
 
-            // PISO 2: NAVEGACIÓN + BUSCADOR
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically

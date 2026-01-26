@@ -39,7 +39,7 @@ fun CreatePostScreen(
     }
 
     Scaffold(
-        containerColor = Color.Black, // Fondo negro total
+        containerColor = Color.Black,
         topBar = {
             TopAppBar(
                 title = { Text("NUEVA QUEJA", fontWeight = FontWeight.ExtraBold, color = Color(0xFFC62828)) },
@@ -72,7 +72,6 @@ fun CreatePostScreen(
                 .background(Color.Black)
                 .padding(16.dp)
         ) {
-            // CAMPO DE TEXTO ESTILO DARK
             OutlinedTextField(
                 value = textState,
                 onValueChange = { textState = it },
@@ -126,7 +125,7 @@ fun CreatePostScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // BOTÓN PARA AÑADIR FOTO (Acento en Rojo)
+            // BOTÓN PARA AÑADIR FOTO
             Button(
                 onClick = { galleryLauncher.launch("image/*") },
                 modifier = Modifier

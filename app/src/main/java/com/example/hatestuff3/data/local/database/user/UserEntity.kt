@@ -6,8 +6,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "users")
 data class UserEntity(
-    //identifica la llave primaria
-    @PrimaryKey(autoGenerate = true) //se crea de manera automática
+    @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
 
     val name: String,

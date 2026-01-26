@@ -39,7 +39,6 @@ fun AppDrawer(
     }
 }
 
-// FUNCION ACTUALIZADA: Ahora recibe onProfile y onLogout para el NavGraph
 @Composable
 fun defaultDrawerItems(
     onHome: () -> Unit,

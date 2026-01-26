@@ -3,8 +3,7 @@ package com.example.hatestuff3.domain.validation
 import android.util.Patterns
 import java.util.regex.Pattern
 
-//archivo para crear las validaciones de cada dato pedido en los distintos
-//formularios de mi app
+
 fun validateNameLettersOnly(nombre: String): String?{
     //validar si el nombre esta vacio
     if(nombre.isBlank()) return "El nombre es obligatorio"
@@ -57,7 +56,6 @@ fun validateComment(text: String): String? {
     return null
 }
 fun validateBio(bio: String): String? {
-    // La bio puede estar vacía, así que solo validamos si tiene contenido
     if (bio.length > 150) return "La biografía no puede superar los 150 caracteres."
     return null
 }

@@ -9,7 +9,6 @@ data class PostEntity(
     val id: Long = 0,
     val content: String,
     val imageUri: String?,
-    // AGREGAMOS ESTOS CAMPOS QUE FALTABAN PARA QUE EL DAO FUNCIONE
     val creationTime: Long = System.currentTimeMillis(),
     val likes: Int = 0,
     val userName: String

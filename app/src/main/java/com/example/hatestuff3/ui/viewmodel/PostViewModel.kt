@@ -16,11 +16,11 @@ import kotlinx.coroutines.withContext
 
 class PostViewModel(private val postDao: PostDao, private val commentDao: CommentDao) : ViewModel() {
 
-    // 1. ESTADO DE BÚSQUEDA
+    // ESTADO DE BÚSQUEDA
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // 2. LISTA FILTRADA
+    // LISTA FILTRADA
     val filteredPosts: StateFlow<List<PostEntity>> = combine(
         postDao.getAllPosts(),
         _searchQuery
@@ -36,7 +36,7 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
         initialValue = emptyList()
     )
 
-    // Lista completa (backup)
+    // Lista completa
     val allPosts: StateFlow<List<PostEntity>> = postDao.getAllPosts()
         .stateIn(
             scope = viewModelScope,
@@ -51,7 +51,7 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
 
     // --- FUNCIÓN MODIFICADA PARA GUARDAR IMÁGENES PERMANENTES ---
     fun submitPost(
-        context: Context, // Necesitamos el contexto para copiar el archivo
+        context: Context,
         content: String,
         imageUri: String?,
         userName: String,
@@ -63,7 +63,6 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
                 // Paso 1: Procesar la imagen en segundo plano (IO)
                 val finalImagePath = withContext(Dispatchers.IO) {
                     if (imageUri != null) {
-                        // Convertimos el String a Uri y usamos nuestra utilidad mágica
                         val originalUri = Uri.parse(imageUri)
                         copyImageToInternalStorage(context, originalUri)
                     } else {
@@ -71,11 +70,11 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
                     }
                 }
 
-                // Paso 2: Guardar en la base de datos con la ruta NUEVA (finalImagePath)
+
                 val newPost = PostEntity(
                     userName = userName,
                     content = content,
-                    imageUri = finalImagePath, // Guardamos la ruta interna, no la de galería
+                    imageUri = finalImagePath,
                     creationTime = System.currentTimeMillis(),
                     likes = 0
                 )

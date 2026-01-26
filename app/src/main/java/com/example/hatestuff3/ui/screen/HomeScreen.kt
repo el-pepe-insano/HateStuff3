@@ -37,7 +37,6 @@ fun HomeScreen(
     authViewModel: AuthViewModel,
     onCreatePostClick: () -> Unit,
     onNavigateToAdmin: () -> Unit,
-    // --- NUEVO PARÁMETRO: Acción al hacer clic en un usuario ---
     onUserClick: (String) -> Unit,
     onOpenDrawer: () -> Unit = {}
 ) {
@@ -147,9 +146,6 @@ fun HomeScreen(
         }
     }
 }
-
-// ... (PostItem, CommentSection y CommentBubble se mantienen exactamente igual que antes,
-// así que no hace falta volver a copiarlos si ya los tienes bien en el archivo)
 @Composable
 fun PostItem(
     post: PostEntity,
@@ -167,7 +163,7 @@ fun PostItem(
         label = "likeScale"
     )
 
-    // --- SEGURIDAD CRÍTICA ---
+    //SEGURIDAD
     val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod", "pro", "profe", "dios")
 
     val isAuthorAdmin = post.userName.lowercase() in adminNames
@@ -256,8 +252,6 @@ fun PostItem(
     }
 }
 
-// Agrega CommentSection y CommentBubble abajo si no los tienes en el archivo original,
-// pero deberían estar ahí del paso anterior.
 @Composable
 fun CommentSection(post: PostEntity, viewModel: PostViewModel, currentUser: UserEntity) {
     val comments by viewModel.getComments(post.id).collectAsState(initial = emptyList())

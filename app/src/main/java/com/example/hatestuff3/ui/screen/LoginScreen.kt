@@ -75,7 +75,6 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // --- LOGO EN LUGAR DE TEXTO ---
         Image(
             painter = painterResource(id = R.drawable.logo_hatestuffnolo),
             contentDescription = "Logo Hate Stuff",
@@ -142,7 +141,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- BOTÓN CON GRADIENTE SANGRIENTO ---
         Button(
             onClick = { vm.login() },
             enabled = !state.isLoading,

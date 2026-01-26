@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 
-// --- SOLUCIÓN: La etiqueta va AQUÍ, antes de "fun" ---
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,13 +37,12 @@ fun PublicProfileScreen(
     authViewModel: AuthViewModel,
     onBackClick: () -> Unit
 ) {
-    // 1. Datos
     val allPosts by postViewModel.filteredPosts.collectAsState()
     val userPosts = allPosts.filter { it.userName == userName }
     val currentUser by authViewModel.currentUser.collectAsState()
     val targetUserProfile by authViewModel.getUserPublicInfo(userName).collectAsState(initial = null)
 
-    // 2. Colores y Estilos (ROJO SANGRE PRESERVADO)
+    // 2. Colores y Estilos
     val BackgroundColor = Color(0xFF000000)
     val SurfaceColor = Color(0xFF121212)
     val HateRed = Color(0xFF8B0000) // Rojo Sangre
@@ -65,7 +63,7 @@ fun PublicProfileScreen(
     // Degradado para el fondo del banner
     val bannerBrush = Brush.verticalGradient(
         colors = listOf(
-            profileAccentColor.copy(alpha = 0.5f), // Un poco más intenso
+            profileAccentColor.copy(alpha = 0.5f),
             BackgroundColor
         )
     )
@@ -73,7 +71,6 @@ fun PublicProfileScreen(
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            // TopBar transparente para que se vea el degradado y la flecha atrás
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -90,21 +87,17 @@ fun PublicProfileScreen(
             )
         }
     ) { paddingValues ->
-        // AQUÍ ESTABA EL ERROR. Ahora usamos paddingValues solo abajo para evitar tapar contenido,
-        // pero arriba lo ignoramos (top = 0.dp) para que el banner quede detrás de la barra transparente.
 
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundColor),
-            // Solo respetamos el padding de abajo (navegación), arriba queremos que llegue al borde
             contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding() + 16.dp)
         ) {
 
-            // --- ITEM 1: CABECERA DEL PERFIL (BANNER + INFO) ---
+            // CABECERA DEL PERFIL
             item {
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    // Fondo con degradado (Banner)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -138,7 +131,7 @@ fun PublicProfileScreen(
                                 }
                             }
 
-                            // Icono pequeño de rol (Corona/Escudo)
+                            // Icono pequeño de rol
                             if (isProfileAdmin || isProfileMod) {
                                 Surface(
                                     color = BackgroundColor,
@@ -231,7 +224,6 @@ fun PublicProfileScreen(
                                 )
                             }
 
-                            // Separador vertical
                             Box(modifier = Modifier.height(30.dp).width(1.dp).background(Color.White.copy(alpha = 0.1f)))
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -257,7 +249,7 @@ fun PublicProfileScreen(
                 HorizontalDivider(color = SurfaceColor, thickness = 2.dp)
             }
 
-            // --- ITEM 2: LISTA DE POSTS ---
+            // --- LISTA DE POSTS ---
             if (userPosts.isEmpty()) {
                 item {
                     Box(

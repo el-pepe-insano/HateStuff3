@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Estado unificado para mantener la UI sincronizada
 data class AuthState(
     // Campos de Login
     val loginEmail: String = "",
@@ -42,7 +41,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
     private val _currentUser = MutableStateFlow<UserEntity?>(null)
     val currentUser: StateFlow<UserEntity?> = _currentUser
 
-    // --- EVENTOS DE CAMBIO DE TEXTO (Limpian errores al escribir) ---
+    // --- EVENTOS DE CAMBIO DE TEXTO  ---
     fun onLoginEmailChange(text: String) {
         _state.update { it.copy(loginEmail = text, loginError = null) }
     }
@@ -123,7 +122,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
                 if (existing != null) {
                     _state.update { it.copy(regEmailError = "Este correo ya existe", isLoading = false) }
                 } else {
-                    // --- LÓGICA DE ROLES MEJORADA ---
+                    // --- LÓGICA DE ROLES  ---
                     val emailLower = s.regEmail.trim().lowercase()
                     val assignedRole = when {
                         emailLower.contains("admin") -> "ADMIN"
@@ -161,23 +160,17 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
         _state.value = AuthState()
     }
 
-    // --- NUEVA FUNCIÓN COMPLETA PARA ACTUALIZAR PERFIL (NOMBRE, BIO, FOTO) ---
+    // ---FUNCIÓN COMPLETA PARA ACTUALIZAR PERFIL (NOMBRE, BIO, FOTO) ---
     fun updateUserProfile(userId: Long, newName: String, newBio: String, newAvatarUri: String?) {
         viewModelScope.launch {
             try {
-                // 1. Obtenemos el usuario actual
                 val current = _currentUser.value ?: return@launch
-
-                // 2. Creamos una copia con los datos nuevos
-                // NOTA: Mapeamos los parámetros a los campos de tu UserEntity (name, bio, profilePictureUri)
                 val updatedUser = current.copy(
                     name = newName,
                     bio = newBio,
                     profilePictureUri = newAvatarUri // Si es null, se borrará la foto. Si quieres mantener la anterior en caso de null, manéjalo en la UI.
                 )
 
-                // 3. Guardamos en Base de Datos usando Update genérico
-                // Asegúrate de tener @Update fun updateUser(user: UserEntity) en tu UserDao
                 userDao.updateUser(updatedUser)
 
                 // 4. Actualizamos el estado local

@@ -10,19 +10,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PostDao {
-    // --- 1. POSTS (Lo que ya tenías) ---
+    //  1. POSTS
     @Query("SELECT * FROM posts ORDER BY creationTime DESC")
     fun getAllPosts(): Flow<List<PostEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPost(post: PostEntity)
 
-    // --- 2. LIKES (Lo que se ve al final de tu foto) ---
+    // --- 2. LIKES
     @Query("UPDATE posts SET likes = likes + 1 WHERE id = :postId")
     suspend fun incrementLikes(postId: Long)
 
-    // --- 3. COMENTARIOS (LO QUE FALTA y causa los errores) ---
-    // Debes agregar esto para que el error del Repositorio desaparezca
+    // --- 3. COMENTARIOS
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertComment(comment: CommentEntity)
 

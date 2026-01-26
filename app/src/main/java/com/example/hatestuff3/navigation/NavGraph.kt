@@ -121,7 +121,7 @@ fun AppNavGraph(
             }
         }
 
-        // 4. PERFIL PROPIO (MODIFICADO CON EL BOTÓN ATRÁS)
+        // 4. PERFIL PROPIO
         composable(Route.Profile.path) {
             if (currentUser != null) {
                 ProfileScreen(
@@ -133,7 +133,6 @@ fun AppNavGraph(
                             popUpTo(0)
                         }
                     },
-                    // --- AQUÍ ESTÁ EL CAMBIO ---
                     onBack = {
                         navController.popBackStack()
                     }
@@ -148,8 +147,6 @@ fun AppNavGraph(
         // 5. NEW POST
         composable(Route.NewPost.path) {
             val userState by authViewModel.currentUser.collectAsState()
-
-            // Contexto para guardar imágenes
             val context = LocalContext.current
 
             CreatePostScreen(

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class CommentEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val postId: Long, // IMPORTANTE: Esto conecta el comentario con el post
+    val postId: Long,
     val userName: String,
     val text: String,
     val timestamp: Long = System.currentTimeMillis()

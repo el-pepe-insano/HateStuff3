@@ -37,7 +37,7 @@ fun ProfileScreen(
     authViewModel: AuthViewModel,
     postViewModel: PostViewModel,
     onLogout: () -> Unit,
-    onBack: () -> Unit // <--- 1. NUEVO PARÁMETRO
+    onBack: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     val allPosts by postViewModel.allPosts.collectAsState(initial = emptyList())
@@ -149,7 +149,6 @@ fun ProfileScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // AVATAR
                 Box(contentAlignment = Alignment.BottomEnd) {
                     if (editedAvatarUri != null) {
                         AsyncImage(

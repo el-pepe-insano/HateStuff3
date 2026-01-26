@@ -28,17 +28,14 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onBackToLogin: () -> Unit
 ) {
-    // 1. Colores Estilo HateStuff
     val RegBackground = Color(0xFF121212)
     val RegCardBg = Color(0xFF1E1E1E)
     val RegBloodRed = Color(0xFFC62828)
     val RegTextWhite = Color.White
     val RegTextGray = Color(0xFFB0B0B0)
 
-    // 2. Observamos el Estado Único del ViewModel
     val state by vm.state.collectAsState()
 
-    // 3. Variables locales solo para UI (visibilidad de password)
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
@@ -47,15 +44,15 @@ fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
 
-    // 4. Efecto de Navegación
+
     LaunchedEffect(state.isRegisterSuccess) {
         if (state.isRegisterSuccess) {
             onRegisterSuccess()
-            vm.clearStates() // Limpiamos formulario al salir
+            vm.clearStates()
         }
     }
 
-    // Configuración de colores de inputs
+
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = RegTextWhite,
         unfocusedTextColor = RegTextWhite,
@@ -91,7 +88,7 @@ fun RegisterScreen(
                     color = RegBloodRed
                 )
 
-                // --- NOMBRE DE USUARIO ---
+                // NOMBRE DE USUARIO
                 OutlinedTextField(
                     value = state.regName,
                     onValueChange = { vm.onRegNameChange(it) },
@@ -105,7 +102,7 @@ fun RegisterScreen(
                     colors = textFieldColors
                 )
 
-                // --- EMAIL ---
+                //  EMAIL
                 OutlinedTextField(
                     value = state.regEmail,
                     onValueChange = { vm.onRegEmailChange(it) },

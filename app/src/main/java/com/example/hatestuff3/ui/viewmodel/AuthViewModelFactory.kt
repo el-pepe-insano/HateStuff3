@@ -24,7 +24,7 @@ class AuthViewModelFactory(
             modelClass.isAssignableFrom(PostViewModel::class.java) -> {
                 PostViewModel(postDao, commentDao) as T
             }
-            // 3. AdminViewModel: Para gestionar usuarios (BORRAR/ROLES)
+            // 3. AdminViewModel: Para gestionar usuarios
             modelClass.isAssignableFrom(AdminViewModel::class.java) -> {
                 AdminViewModel(userDao) as T
             }

@@ -10,23 +10,23 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
-    // 1. Insertar usuario (Registro)
+    // 1. Insertar usuario
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 
-    // 2. Obtener por Email (Login)
+    // 2. Obtener por Email
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): UserEntity?
 
-    // 3. Obtener por ID (Para refrescar perfil tras cambios)
+    // 3. Obtener por ID
     @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
     suspend fun getUserById(id: Long): UserEntity?
 
-    // 4. Actualizar Perfil (Bio y Foto)
+    // 4.  Perfil (Bio y Foto)
     @Query("UPDATE users SET bio = :bio, profilePictureUri = :photoUri WHERE id = :userId")
     suspend fun updateUserProfile(userId: Long, bio: String, photoUri: String?)
 
-    // 5. Contar usuarios (Para inicializar DB)
+    // 5. Contar usuarios
     @Query("SELECT COUNT(*) FROM users")
     suspend fun countUsers(): Int
 
@@ -37,7 +37,7 @@ interface UserDao {
     @Delete
     suspend fun deleteUser(user: UserEntity)
 
-    // 3. Actualizar datos completos del usuario (útil para cambiar el ROL)
+    // 3. Actualizar datos completos del usuario
     @Update
     suspend fun updateUser(user: UserEntity)
 
