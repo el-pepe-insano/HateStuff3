@@ -8,9 +8,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext // <--- IMPORTANTE PARA EL CONTEXTO
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.hatestuff3.ui.components.AppDrawer
 import com.example.hatestuff3.ui.components.defaultDrawerItems
 import com.example.hatestuff3.ui.screen.AdminUsersScreen
@@ -18,6 +21,7 @@ import com.example.hatestuff3.ui.screen.CreatePostScreen
 import com.example.hatestuff3.ui.screen.HomeScreen
 import com.example.hatestuff3.ui.screen.LoginScreen
 import com.example.hatestuff3.ui.screen.ProfileScreen
+import com.example.hatestuff3.ui.screen.PublicProfileScreen
 import com.example.hatestuff3.ui.screen.RegisterScreen
 import com.example.hatestuff3.ui.viewmodel.AdminViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
@@ -67,7 +71,7 @@ fun AppNavGraph(
             )
         }
 
-        // 3. HOME (MODIFICADO)
+        // 3. HOME
         composable(Route.Home.path) {
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
@@ -98,7 +102,6 @@ fun AppNavGraph(
                     )
                 }
             ) {
-                // YA NO HAY SCAFFOLD AQUÍ. HomeScreen maneja su propia estructura.
                 HomeScreen(
                     postViewModel = postViewModel,
                     authViewModel = authViewModel,
@@ -108,15 +111,17 @@ fun AppNavGraph(
                     onNavigateToAdmin = {
                         navController.navigate("admin_users")
                     },
-                    // Pasamos la acción de abrir el Drawer a HomeScreen
                     onOpenDrawer = {
                         scope.launch { drawerState.open() }
+                    },
+                    onUserClick = { userName ->
+                        navController.navigate("public_profile/$userName")
                     }
                 )
             }
         }
 
-        // 4. PERFIL
+        // 4. PERFIL PROPIO
         composable(Route.Profile.path) {
             if (currentUser != null) {
                 ProfileScreen(
@@ -136,14 +141,19 @@ fun AppNavGraph(
             }
         }
 
-        // 5. NEW POST
+        // 5. NEW POST (AQUÍ ESTÁ EL CAMBIO IMPORTANTE)
         composable(Route.NewPost.path) {
             val userState by authViewModel.currentUser.collectAsState()
+
+            // Obtenemos el contexto actual de la aplicación
+            val context = LocalContext.current
 
             CreatePostScreen(
                 onPostCreated = { content, imageUri ->
                     userState?.let { user ->
+                        // Ahora pasamos el contexto a submitPost para guardar la imagen real
                         postViewModel.submitPost(
+                            context = context, // <--- ESTO ES LO NUEVO
                             content = content,
                             imageUri = imageUri?.toString(),
                             userName = user.name,
@@ -165,6 +175,21 @@ fun AppNavGraph(
             AdminUsersScreen(
                 adminViewModel = adminViewModel,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        // 7. PERFIL PÚBLICO
+        composable(
+            route = "public_profile/{userName}",
+            arguments = listOf(navArgument("userName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userName = backStackEntry.arguments?.getString("userName") ?: ""
+
+            PublicProfileScreen(
+                userName = userName,
+                postViewModel = postViewModel,
+                authViewModel = authViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

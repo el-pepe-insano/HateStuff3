@@ -3,6 +3,7 @@ package com.example.hatestuff3.ui.screen
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,12 +37,12 @@ fun HomeScreen(
     authViewModel: AuthViewModel,
     onCreatePostClick: () -> Unit,
     onNavigateToAdmin: () -> Unit,
+    // --- NUEVO PARÁMETRO: Acción al hacer clic en un usuario ---
+    onUserClick: (String) -> Unit,
     onOpenDrawer: () -> Unit = {}
 ) {
-    // 1. USAMOS LA LISTA FILTRADA Y EL ESTADO DE BÚSQUEDA
     val posts by postViewModel.filteredPosts.collectAsState()
     val searchQuery by postViewModel.searchQuery.collectAsState()
-
     val currentUser by authViewModel.currentUser.collectAsState()
 
     val sheetState = rememberModalBottomSheetState()
@@ -86,7 +87,9 @@ fun HomeScreen(
             AppTopBar(
                 onOpenDrawer = onOpenDrawer,
                 onLogin = if (currentUser == null) { {} } else null,
-                onAdminClick = if (isAdmin) onNavigateToAdmin else null
+                onAdminClick = if (isAdmin) onNavigateToAdmin else null,
+                searchQuery = searchQuery,
+                onSearchQueryChange = { postViewModel.onSearchQueryChanged(it) }
             )
         },
         floatingActionButton = {
@@ -98,25 +101,17 @@ fun HomeScreen(
             ) { Icon(Icons.Default.Add, contentDescription = "Nueva Queja") }
         }
     ) { paddingValues ->
-        // 2. COLUMNA PRINCIPAL PARA ALOJAR LA BARRA DE BÚSQUEDA
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(BackgroundColor)
         ) {
-
-            // --- BARRA DE BÚSQUEDA ---
-            UserSearchBar(
-                query = searchQuery,
-                onQueryChange = { postViewModel.onSearchQueryChanged(it) }
-            )
-
             if (posts.isEmpty()) {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Lógica para diferenciar si no hay posts o si no hay resultados de búsqueda
                     val icon = if (searchQuery.isNotEmpty()) Icons.Default.SearchOff else Icons.Default.SentimentDissatisfied
-                    val text = if (searchQuery.isNotEmpty()) "No se encontró a ese usuario odioso." else "Nadie se ha quejado aún..."
+                    val text = if (searchQuery.isNotEmpty()) "No se encontró a ese usuario." else "Nadie se ha quejado aún..."
 
                     Icon(icon, null, tint = Color.DarkGray, modifier = Modifier.size(64.dp))
                     Text(text, color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
@@ -132,7 +127,9 @@ fun HomeScreen(
                                 selectedPost = post
                                 showBottomSheet = true
                             },
-                            onDeleteClick = { postToDelete = post }
+                            onDeleteClick = { postToDelete = post },
+                            // --- USAMOS EL NUEVO PARÁMETRO AQUÍ ---
+                            onUserClick = { userName -> onUserClick(userName) }
                         )
                     }
                 }
@@ -151,40 +148,17 @@ fun HomeScreen(
     }
 }
 
-// --- COMPONENTE DE BARRA DE BÚSQUEDA ---
+// ... (PostItem, CommentSection y CommentBubble se mantienen exactamente igual que antes,
+// así que no hace falta volver a copiarlos si ya los tienes bien en el archivo)
 @Composable
-fun UserSearchBar(query: String, onQueryChange: (String) -> Unit) {
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(55.dp),
-        placeholder = { Text("Buscar usuario...", color = Color.Gray) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Default.Close, contentDescription = "Borrar", tint = Color.Gray)
-                }
-            }
-        },
-        shape = RoundedCornerShape(24.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFF1A1A1A),
-            unfocusedContainerColor = Color(0xFF1A1A1A),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent
-        ),
-        singleLine = true
-    )
-}
-
-@Composable
-fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit, onCommentClick: () -> Unit, onDeleteClick: () -> Unit) {
+fun PostItem(
+    post: PostEntity,
+    currentUser: UserEntity?,
+    onLikeClick: () -> Unit,
+    onCommentClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onUserClick: (String) -> Unit = {}
+) {
     val HateRed = Color(0xFF8B0000)
 
     val scale by animateFloatAsState(
@@ -193,17 +167,17 @@ fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit
         label = "likeScale"
     )
 
-    // --- LISTA BLANCA DE ADMINS ---
-    val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod")
+    // --- SEGURIDAD CRÍTICA ---
+    val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod", "pro", "profe", "dios")
 
     val isAuthorAdmin = post.userName.lowercase() in adminNames
     val isAuthorMod = post.userName.lowercase().contains("mod")
 
     val canDelete = when {
         currentUser == null -> false
-        currentUser.name == post.userName -> true // Dueño
-        currentUser.role == "ADMIN" -> true // Admin supremo
-        currentUser.role == "MOD" -> !isAuthorAdmin // MOD borra todo MENOS a los de la lista blanca
+        currentUser.name == post.userName -> true
+        currentUser.role == "ADMIN" -> true
+        currentUser.role == "MOD" -> !isAuthorAdmin
         else -> false
     }
 
@@ -217,7 +191,6 @@ fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit
     ) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Icono + Badge de Rol
                 Box(contentAlignment = Alignment.BottomEnd) {
                     Icon(Icons.Default.Person, null, tint = HateRed, modifier = Modifier.size(40.dp))
                     if (isAuthorAdmin) Text("👑", fontSize = 12.sp)
@@ -226,9 +199,14 @@ fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit
 
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onUserClick(post.userName) }
+                            .padding(2.dp)
+                    ) {
                         Text(text = post.userName, color = Color.White, fontWeight = FontWeight.Bold)
-                        // Etiquetas de texto
                         if (isAuthorAdmin) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("ADMIN", color = HateRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -278,6 +256,8 @@ fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit
     }
 }
 
+// Agrega CommentSection y CommentBubble abajo si no los tienes en el archivo original,
+// pero deberían estar ahí del paso anterior.
 @Composable
 fun CommentSection(post: PostEntity, viewModel: PostViewModel, currentUser: UserEntity) {
     val comments by viewModel.getComments(post.id).collectAsState(initial = emptyList())
@@ -314,7 +294,6 @@ fun CommentSection(post: PostEntity, viewModel: PostViewModel, currentUser: User
 
 @Composable
 fun CommentBubble(comment: com.example.hatestuff3.data.local.database.post.CommentEntity, currentUser: UserEntity?, onDeleteClick: () -> Unit) {
-    // --- LISTA BLANCA DE ADMINS PARA COMENTARIOS ---
     val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod", "Dios", "profe","pro")
 
     val isAuthorAdmin = comment.userName.lowercase() in adminNames
@@ -324,7 +303,7 @@ fun CommentBubble(comment: com.example.hatestuff3.data.local.database.post.Comme
         currentUser == null -> false
         currentUser.name == comment.userName -> true
         currentUser.role == "ADMIN" -> true
-        currentUser.role == "MOD" -> !isAuthorAdmin // Protección activa
+        currentUser.role == "MOD" -> !isAuthorAdmin
         else -> false
     }
 

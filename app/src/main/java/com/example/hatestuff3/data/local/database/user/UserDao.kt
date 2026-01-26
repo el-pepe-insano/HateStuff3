@@ -40,4 +40,7 @@ interface UserDao {
     // 3. Actualizar datos completos del usuario (útil para cambiar el ROL)
     @Update
     suspend fun updateUser(user: UserEntity)
+
+    @Query("SELECT * FROM users WHERE name = :userName LIMIT 1")
+    fun getUserByNameFlow(userName: String): kotlinx.coroutines.flow.Flow<UserEntity?>
 }

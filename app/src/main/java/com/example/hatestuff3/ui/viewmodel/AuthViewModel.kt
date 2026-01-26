@@ -127,7 +127,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
                     val emailLower = s.regEmail.trim().lowercase()
                     val assignedRole = when {
                         emailLower.contains("admin") -> "ADMIN"
-                        emailLower.contains("mod") -> "MOD" // <--- Detección de Moderadores
+                        emailLower.contains("mod") -> "MOD"
                         else -> "USER"
                     }
 
@@ -161,17 +161,36 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
         _state.value = AuthState()
     }
 
-    fun updateProfile(userId: Long, newBio: String, newPhotoUri: String?) {
+    // --- NUEVA FUNCIÓN COMPLETA PARA ACTUALIZAR PERFIL (NOMBRE, BIO, FOTO) ---
+    fun updateUserProfile(userId: Long, newName: String, newBio: String, newAvatarUri: String?) {
         viewModelScope.launch {
             try {
-                userDao.updateUserProfile(userId, newBio, newPhotoUri)
-                _currentUser.value?.email?.let { email ->
-                    val updatedUser = userDao.getUserByEmail(email)
-                    _currentUser.value = updatedUser
-                }
+                // 1. Obtenemos el usuario actual
+                val current = _currentUser.value ?: return@launch
+
+                // 2. Creamos una copia con los datos nuevos
+                // NOTA: Mapeamos los parámetros a los campos de tu UserEntity (name, bio, profilePictureUri)
+                val updatedUser = current.copy(
+                    name = newName,
+                    bio = newBio,
+                    profilePictureUri = newAvatarUri // Si es null, se borrará la foto. Si quieres mantener la anterior en caso de null, manéjalo en la UI.
+                )
+
+                // 3. Guardamos en Base de Datos usando Update genérico
+                // Asegúrate de tener @Update fun updateUser(user: UserEntity) en tu UserDao
+                userDao.updateUser(updatedUser)
+
+                // 4. Actualizamos el estado local
+                _currentUser.value = updatedUser
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+    }
+
+    // Obtener información pública para el perfil de otros usuarios
+    fun getUserPublicInfo(userName: String): kotlinx.coroutines.flow.Flow<UserEntity?> {
+        return userDao.getUserByNameFlow(userName)
     }
 }

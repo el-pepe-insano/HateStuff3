@@ -1,13 +1,18 @@
 package com.example.hatestuff3.ui.viewmodel
 
+import android.content.Context // Importante para manejar archivos
+import android.net.Uri        // Importante para leer la imagen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hatestuff3.data.local.database.post.CommentDao
 import com.example.hatestuff3.data.local.database.post.CommentEntity
 import com.example.hatestuff3.data.local.database.post.PostDao
 import com.example.hatestuff3.data.local.database.post.PostEntity
+import com.example.hatestuff3.copyImageToInternalStorage // Asegúrate de importar tu utilidad
+import kotlinx.coroutines.Dispatchers // Para mover el trabajo pesado fuera del hilo principal
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PostViewModel(private val postDao: PostDao, private val commentDao: CommentDao) : ViewModel() {
 
@@ -15,8 +20,7 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // 2. LISTA FILTRADA (Esta es la que usa ahora tu HomeScreen)
-    // Combina la base de datos con el texto de búsqueda
+    // 2. LISTA FILTRADA
     val filteredPosts: StateFlow<List<PostEntity>> = combine(
         postDao.getAllPosts(),
         _searchQuery
@@ -24,7 +28,6 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
         if (query.isBlank()) {
             posts
         } else {
-            // Filtra si el nombre del usuario contiene el texto (mayúsculas o minúsculas)
             posts.filter { it.userName.contains(query, ignoreCase = true) }
         }
     }.stateIn(
@@ -33,7 +36,7 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
         initialValue = emptyList()
     )
 
-    // Mantenemos esto por si acaso, pero la UI principal ahora usa filteredPosts
+    // Lista completa (backup)
     val allPosts: StateFlow<List<PostEntity>> = postDao.getAllPosts()
         .stateIn(
             scope = viewModelScope,
@@ -41,18 +44,38 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
             initialValue = emptyList()
         )
 
-    // 3. FUNCIÓN PARA CAMBIAR EL TEXTO DE BÚSQUEDA
+    // 3. CAMBIAR BÚSQUEDA
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
     }
 
-    fun submitPost(content: String, imageUri: String?, userName: String, onSuccess: () -> Unit, onError: () -> Unit) {
+    // --- FUNCIÓN MODIFICADA PARA GUARDAR IMÁGENES PERMANENTES ---
+    fun submitPost(
+        context: Context, // Necesitamos el contexto para copiar el archivo
+        content: String,
+        imageUri: String?,
+        userName: String,
+        onSuccess: () -> Unit,
+        onError: () -> Unit
+    ) {
         viewModelScope.launch {
             try {
+                // Paso 1: Procesar la imagen en segundo plano (IO)
+                val finalImagePath = withContext(Dispatchers.IO) {
+                    if (imageUri != null) {
+                        // Convertimos el String a Uri y usamos nuestra utilidad mágica
+                        val originalUri = Uri.parse(imageUri)
+                        copyImageToInternalStorage(context, originalUri)
+                    } else {
+                        null
+                    }
+                }
+
+                // Paso 2: Guardar en la base de datos con la ruta NUEVA (finalImagePath)
                 val newPost = PostEntity(
                     userName = userName,
                     content = content,
-                    imageUri = imageUri,
+                    imageUri = finalImagePath, // Guardamos la ruta interna, no la de galería
                     creationTime = System.currentTimeMillis(),
                     likes = 0
                 )

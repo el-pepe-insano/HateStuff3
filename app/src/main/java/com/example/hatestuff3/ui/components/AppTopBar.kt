@@ -28,11 +28,13 @@ fun AppTopBar(
     onOpenDrawer: () -> Unit,
     onHome: (() -> Unit)? = null,
     onLogin: (() -> Unit)? = null,
-    // NUEVO PARÁMETRO: Acción para el admin
-    onAdminClick: (() -> Unit)? = null
+    onAdminClick: (() -> Unit)? = null,
+    // NUEVOS PARÁMETROS: Para que la barra funcione de verdad
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf("") }
+    // Hemos eliminado 'var searchText' porque ahora el texto viene de fuera (del ViewModel)
 
     val hateBlack = Color(0xFF000000)
     val bloodRed = Color(0xFF8B0000)
@@ -58,7 +60,7 @@ fun AppTopBar(
                 )
             }
 
-            // PISO 2: NAVEGACIÓN
+            // PISO 2: NAVEGACIÓN + BUSCADOR
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -69,8 +71,8 @@ fun AppTopBar(
 
                 Box(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
                     HateSearchBar(
-                        text = searchText,
-                        onTextChange = { searchText = it },
+                        text = searchQuery, // Usamos el dato real
+                        onTextChange = onSearchQueryChange, // Enviamos el cambio al ViewModel
                         placeholder = "Buscar usuarios...",
                         cursorColor = bloodRed,
                         backgroundColor = darkGray,
@@ -78,10 +80,10 @@ fun AppTopBar(
                     )
                 }
 
-                // --- AQUÍ ESTÁ EL ESCUDO DE ADMIN ---
+                // ESCUDO DE ADMIN
                 if (onAdminClick != null) {
                     IconButton(onClick = onAdminClick) {
-                        Icon(Icons.Filled.Security, "Admin Panel", tint = bloodRed) // Rojo sangre para destacar autoridad
+                        Icon(Icons.Filled.Security, "Admin Panel", tint = bloodRed)
                     }
                 }
 
