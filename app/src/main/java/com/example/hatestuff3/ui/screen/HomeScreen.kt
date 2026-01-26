@@ -1,6 +1,8 @@
 package com.example.hatestuff3.ui.screen
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,15 +15,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.hatestuff3.data.local.database.post.PostEntity
 import com.example.hatestuff3.data.local.database.user.UserEntity
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
+import com.example.hatestuff3.ui.components.AppTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,80 +35,94 @@ fun HomeScreen(
     postViewModel: PostViewModel,
     authViewModel: AuthViewModel,
     onCreatePostClick: () -> Unit,
-    onNavigateToAdmin: () -> Unit
+    onNavigateToAdmin: () -> Unit,
+    onOpenDrawer: () -> Unit = {}
 ) {
-    val posts by postViewModel.allPosts.collectAsState(initial = emptyList())
+    // 1. USAMOS LA LISTA FILTRADA Y EL ESTADO DE BÚSQUEDA
+    val posts by postViewModel.filteredPosts.collectAsState()
+    val searchQuery by postViewModel.searchQuery.collectAsState()
+
     val currentUser by authViewModel.currentUser.collectAsState()
 
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostEntity?>(null) }
+    var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
 
-    val BackgroundColor = Color.Black
-    val HateRed = Color(0xFFD32F2F)
+    val BackgroundColor = Color(0xFF000000)
+    val HateRed = Color(0xFF8B0000)
+
+    if (postToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { postToDelete = null },
+            containerColor = Color(0xFF1A1A1A),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = HateRed)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("¿BORRAR ODIO?", color = Color.White, fontWeight = FontWeight.ExtraBold)
+                }
+            },
+            text = { Text("Esta queja desaparecerá del abismo para siempre.", color = Color(0xFFB0B0B0)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        postViewModel.deletePost(postToDelete!!)
+                        postToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = HateRed)
+                ) { Text("SÍ, ELIMINAR", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { postToDelete = null }) { Text("CANCELAR", color = Color.White) }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text("HATE STUFF", color = HateRed, fontWeight = FontWeight.Bold)
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF121212)
-                ),
-                actions = {
-                    // ESCUDO AHORA EN BLANCO
-                    if (currentUser?.role == "ADMIN") {
-                        IconButton(onClick = onNavigateToAdmin) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = "Panel Admin",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                }
+            val isAdmin = currentUser?.role == "ADMIN"
+            AppTopBar(
+                onOpenDrawer = onOpenDrawer,
+                onLogin = if (currentUser == null) { {} } else null,
+                onAdminClick = if (isAdmin) onNavigateToAdmin else null
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onCreatePostClick,
                 containerColor = HateRed,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nueva Queja")
-            }
+                contentColor = Color.White,
+                shape = CircleShape
+            ) { Icon(Icons.Default.Add, contentDescription = "Nueva Queja") }
         }
     ) { paddingValues ->
-
-        Box(
+        // 2. COLUMNA PRINCIPAL PARA ALOJAR LA BARRA DE BÚSQUEDA
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(BackgroundColor)
         ) {
+
+            // --- BARRA DE BÚSQUEDA ---
+            UserSearchBar(
+                query = searchQuery,
+                onQueryChange = { postViewModel.onSearchQueryChanged(it) }
+            )
+
             if (posts.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SentimentDissatisfied,
-                        contentDescription = "Vacio",
-                        tint = Color.DarkGray,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Nadie se ha quejado aún...", color = Color.Gray)
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Lógica para diferenciar si no hay posts o si no hay resultados de búsqueda
+                    val icon = if (searchQuery.isNotEmpty()) Icons.Default.SearchOff else Icons.Default.SentimentDissatisfied
+                    val text = if (searchQuery.isNotEmpty()) "No se encontró a ese usuario odioso." else "Nadie se ha quejado aún..."
+
+                    Icon(icon, null, tint = Color.DarkGray, modifier = Modifier.size(64.dp))
+                    Text(text, color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(16.dp)) {
                     items(posts, key = { it.id }) { post ->
                         PostItem(
                             post = post,
@@ -112,9 +132,7 @@ fun HomeScreen(
                                 selectedPost = post
                                 showBottomSheet = true
                             },
-                            onDeleteClick = {
-                                postViewModel.deletePost(post)
-                            }
+                            onDeleteClick = { postToDelete = post }
                         )
                     }
                 }
@@ -125,128 +143,136 @@ fun HomeScreen(
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
                 sheetState = sheetState,
-                containerColor = Color(0xFF1E1E1E)
+                containerColor = Color(0xFF121212)
             ) {
-                CommentSection(
-                    post = selectedPost!!,
-                    viewModel = postViewModel,
-                    currentUser = currentUser!!
-                )
+                CommentSection(post = selectedPost!!, viewModel = postViewModel, currentUser = currentUser!!)
             }
         }
     }
 }
 
+// --- COMPONENTE DE BARRA DE BÚSQUEDA ---
 @Composable
-fun PostItem(
-    post: PostEntity,
-    currentUser: UserEntity?,
-    onLikeClick: () -> Unit,
-    onCommentClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    val DarkCardColor = Color(0xFF1E1E1E)
-    val HateRed = Color(0xFFD32F2F)
-    val TextGray = Color(0xFFB0B0B0)
+fun UserSearchBar(query: String, onQueryChange: (String) -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(55.dp),
+        placeholder = { Text("Buscar usuario...", color = Color.Gray) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, contentDescription = "Borrar", tint = Color.Gray)
+                }
+            }
+        },
+        shape = RoundedCornerShape(24.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color(0xFF1A1A1A),
+            unfocusedContainerColor = Color(0xFF1A1A1A),
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent
+        ),
+        singleLine = true
+    )
+}
 
-    // LÓGICA DE SEGURIDAD CORREGIDA: Solo Admin o el dueño borran
+@Composable
+fun PostItem(post: PostEntity, currentUser: UserEntity?, onLikeClick: () -> Unit, onCommentClick: () -> Unit, onDeleteClick: () -> Unit) {
+    val HateRed = Color(0xFF8B0000)
+
+    val scale by animateFloatAsState(
+        targetValue = if (post.likes > 0) 1.25f else 1.0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "likeScale"
+    )
+
+    // --- LISTA BLANCA DE ADMINS ---
+    val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod")
+
+    val isAuthorAdmin = post.userName.lowercase() in adminNames
+    val isAuthorMod = post.userName.lowercase().contains("mod")
+
     val canDelete = when {
-        currentUser?.role == "ADMIN" -> true
-        currentUser?.role == "MOD" -> true
-        currentUser?.name == post.userName -> true
+        currentUser == null -> false
+        currentUser.name == post.userName -> true // Dueño
+        currentUser.role == "ADMIN" -> true // Admin supremo
+        currentUser.role == "MOD" -> !isAuthorAdmin // MOD borra todo MENOS a los de la lista blanca
         else -> false
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = DarkCardColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A).copy(alpha = 0.85f)),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
-        ) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Usuario",
-                    tint = HateRed,
-                    modifier = Modifier.size(40.dp)
-                )
+                // Icono + Badge de Rol
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Icon(Icons.Default.Person, null, tint = HateRed, modifier = Modifier.size(40.dp))
+                    if (isAuthorAdmin) Text("👑", fontSize = 12.sp)
+                    else if (isAuthorMod) Text("🛡️", fontSize = 12.sp)
+                }
+
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(
-                        text = post.userName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Alguien está molesto...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextGray
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                if (canDelete) {
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = Color.Gray)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = post.userName, color = Color.White, fontWeight = FontWeight.Bold)
+                        // Etiquetas de texto
+                        if (isAuthorAdmin) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ADMIN", color = HateRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        } else if (isAuthorMod) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("MOD", color = Color(0xFF00BCD4), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
+                    Text(text = "Esparciendo odio...", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (canDelete) {
+                    IconButton(onClick = onDeleteClick) { Icon(Icons.Default.Delete, null, tint = Color.DarkGray) }
                 }
             }
-
             Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = post.content,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White
-            )
+            Text(text = post.content, color = Color.White, style = MaterialTheme.typography.bodyLarge)
 
             if (!post.imageUri.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
                     model = post.imageUri,
-                    contentDescription = "Imagen del post",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = Color(0xFF2C2C2C))
-            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onLikeClick) {
                     Icon(
                         imageVector = if (post.likes > 0) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Odiar",
-                        tint = HateRed
+                        contentDescription = null,
+                        tint = HateRed,
+                        modifier = Modifier.scale(scale)
                     )
                 }
-                Text(text = "${post.likes} odios", color = TextGray, fontWeight = FontWeight.Bold)
-
+                Text(text = "${post.likes} odios", color = Color.Gray, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(24.dp))
-
-                IconButton(onClick = onCommentClick) {
-                    Icon(
-                        imageVector = Icons.Default.Comment,
-                        contentDescription = "Comentar",
-                        tint = Color.White
-                    )
-                }
-                Text(text = "Comentar", color = TextGray, style = MaterialTheme.typography.bodyMedium)
+                IconButton(onClick = onCommentClick) { Icon(Icons.Default.Comment, null, tint = Color.White) }
+                Text(text = "Comentar", color = Color.Gray)
             }
         }
     }
@@ -254,152 +280,85 @@ fun PostItem(
 
 @Composable
 fun CommentSection(post: PostEntity, viewModel: PostViewModel, currentUser: UserEntity) {
-    val commentsFlow = remember(post.id) { viewModel.getComments(post.id) }
-    val comments by commentsFlow.collectAsState(initial = emptyList())
+    val comments by viewModel.getComments(post.id).collectAsState(initial = emptyList())
     var commentText by remember { mutableStateOf("") }
-    val myName = currentUser.name
+    val HateRed = Color(0xFF8B0000)
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.9f)
-            .imePadding()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Comentarios (${comments.size})",
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Divider(color = Color.DarkGray, thickness = 1.dp)
+    Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f).imePadding().padding(16.dp)) {
+        Text("RESPUESTAS (${comments.size})", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+        Spacer(modifier = Modifier.height(12.dp))
 
-        LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            reverseLayout = true,
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            if (comments.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                        Text("Nadie ha odiado esto todavía...", color = Color.Gray)
-                    }
-                }
-            }
+        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), reverseLayout = false) {
             items(comments) { comment ->
-                CommentBubble(
-                    comment = comment,
-                    currentUser = currentUser,
-                    onDeleteClick = { viewModel.deleteComment(comment) }
-                )
+                CommentBubble(comment = comment, currentUser = currentUser, onDeleteClick = { viewModel.deleteComment(comment) })
             }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
             TextField(
                 value = commentText,
                 onValueChange = { commentText = it },
-                placeholder = { Text("Escribe tu odio...", color = Color.Gray) },
-                modifier = Modifier.weight(1f),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF1E1E1E),
-                    unfocusedContainerColor = Color(0xFF1E1E1E),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Color(0xFFD32F2F),
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(24.dp),
-                maxLines = 4
+                placeholder = { Text("Añade más leña al fuego...", color = Color.Gray) },
+                modifier = Modifier.weight(1f).border(1.dp, Brush.verticalGradient(listOf(Color.Transparent, HateRed.copy(alpha = 0.3f))), RoundedCornerShape(24.dp)),
+                colors = TextFieldDefaults.colors(focusedContainerColor = Color(0xFF0A0A0A), unfocusedContainerColor = Color(0xFF0A0A0A), focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = Color.White),
+                shape = RoundedCornerShape(24.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(
-                onClick = {
-                    if (commentText.isNotBlank()) {
-                        viewModel.sendComment(post.id, commentText, myName)
-                        commentText = ""
-                    }
-                },
-                modifier = Modifier.background(Color(0xFFD32F2F), CircleShape).size(48.dp)
-            ) {
-                Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
-            }
+                onClick = { if (commentText.isNotBlank()) { viewModel.sendComment(post.id, commentText, currentUser.name); commentText = "" } },
+                modifier = Modifier.background(HateRed, CircleShape)
+            ) { Icon(Icons.Default.Send, null, tint = Color.White) }
         }
-        Spacer(modifier = Modifier.height(10.dp))
     }
 }
 
 @Composable
-fun CommentBubble(
-    comment: com.example.hatestuff3.data.local.database.post.CommentEntity,
-    currentUser: UserEntity?,
-    onDeleteClick: () -> Unit
-) {
-    val BloodRed = Color(0xFF7F0000)
+fun CommentBubble(comment: com.example.hatestuff3.data.local.database.post.CommentEntity, currentUser: UserEntity?, onDeleteClick: () -> Unit) {
+    // --- LISTA BLANCA DE ADMINS PARA COMENTARIOS ---
+    val adminNames = listOf("admin", "administrador", "root", "system", "hatestuffgod", "Dios", "profe","pro")
 
-    // LÓGICA DE PODERES PARA COMENTARIOS CORREGIDA
+    val isAuthorAdmin = comment.userName.lowercase() in adminNames
+    val isAuthorMod = comment.userName.lowercase().contains("mod")
+
     val canDelete = when {
-        currentUser?.role == "ADMIN" -> true
-        currentUser?.role == "MOD" -> true
-        currentUser?.name == comment.userName -> true
+        currentUser == null -> false
+        currentUser.name == comment.userName -> true
+        currentUser.role == "ADMIN" -> true
+        currentUser.role == "MOD" -> !isAuthorAdmin // Protección activa
         else -> false
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            tint = Color(0xFFB71C1C),
-            modifier = Modifier.size(32.dp).padding(top = 4.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
+    val borderColor = when {
+        isAuthorAdmin -> Color(0xFF8B0000)
+        isAuthorMod -> Color(0xFF00BCD4)
+        else -> Color.Transparent
+    }
 
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Icon(Icons.Default.Person, null, tint = if(isAuthorAdmin || isAuthorMod) borderColor else Color.Gray, modifier = Modifier.size(35.dp))
+            if(isAuthorAdmin) Text("👑", fontSize = 10.sp) else if(isAuthorMod) Text("🛡️", fontSize = 10.sp)
+        }
+        Spacer(modifier = Modifier.width(8.dp))
         Column(
             modifier = Modifier
                 .weight(1f)
-                .background(
-                    color = BloodRed,
-                    shape = RoundedCornerShape(
-                        topStart = 4.dp,
-                        topEnd = 16.dp,
-                        bottomEnd = 16.dp,
-                        bottomStart = 16.dp
-                    )
-                )
+                .background(if(isAuthorAdmin) Color(0xFF2A0000) else if(isAuthorMod) Color(0xFF001A1A) else Color(0xFF1E1E1E), RoundedCornerShape(12.dp))
+                .border(if(isAuthorAdmin || isAuthorMod) 1.dp else 0.dp, borderColor, RoundedCornerShape(12.dp))
                 .padding(12.dp)
         ) {
-            Text(
-                text = comment.userName,
-                color = Color(0xFFFF8A80),
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = comment.text,
-                color = Color.White,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        // MOSTRAR PAPELERA SI TIENE PERMISO
-        if (canDelete) {
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Borrar comentario",
-                    tint = Color.DarkGray,
-                    modifier = Modifier.size(18.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = comment.userName,
+                    color = if(isAuthorAdmin) Color(0xFFFFD700) else if(isAuthorMod) Color(0xFF00E5FF) else Color(0xFFFF8A80),
+                    fontWeight = FontWeight.Black, fontSize = 12.sp
                 )
+                if (isAuthorAdmin) Text(" • ADMIN", color = Color(0xFF8B0000), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
             }
+            Text(text = comment.text, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (canDelete) {
+            IconButton(onClick = onDeleteClick) { Icon(Icons.Default.Delete, null, tint = Color.DarkGray, modifier = Modifier.size(16.dp)) }
         }
     }
 }

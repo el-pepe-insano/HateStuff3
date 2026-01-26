@@ -42,3 +42,22 @@ fun validateConfirm(pass:String, confirm: String): String? {
     if(confirm.isBlank()) return "Debe confirmar la contraseña"
     return if(pass != confirm) "Las contraseñas deben ser iguales" else null
 }
+// Validar el contenido de un Post o Queja
+fun validatePostContent(content: String): String? {
+    if (content.isBlank()) return "¡No puedes publicar un silencio! Escribe tu odio."
+    if (content.length < 5) return "Tu queja es muy corta, desahógate más."
+    if (content.length > 500) return "Demasiado odio para un solo post (máx. 500 caracteres)."
+    return null
+}
+
+// Validar Comentarios
+fun validateComment(text: String): String? {
+    if (text.isBlank()) return "Escribe algo para responder."
+    if (text.length > 200) return "Comentario demasiado largo (máx. 200 caracteres)."
+    return null
+}
+fun validateBio(bio: String): String? {
+    // La bio puede estar vacía, así que solo validamos si tiene contenido
+    if (bio.length > 150) return "La biografía no puede superar los 150 caracteres."
+    return null
+}

@@ -1,22 +1,17 @@
 package com.example.hatestuff3.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.hatestuff3.ui.components.AppDrawer
-import com.example.hatestuff3.ui.components.AppTopBar
 import com.example.hatestuff3.ui.components.defaultDrawerItems
 import com.example.hatestuff3.ui.screen.AdminUsersScreen
 import com.example.hatestuff3.ui.screen.CreatePostScreen
@@ -34,7 +29,7 @@ fun AppNavGraph(
     navController: NavHostController,
     authViewModel: AuthViewModel,
     postViewModel: PostViewModel,
-    adminViewModel: AdminViewModel // <--- Agregado para la gestión de usuarios
+    adminViewModel: AdminViewModel
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
 
@@ -72,11 +67,10 @@ fun AppNavGraph(
             )
         }
 
-        // 3. HOME
+        // 3. HOME (MODIFICADO)
         composable(Route.Home.path) {
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
-            val userInHome by authViewModel.currentUser.collectAsState()
 
             ModalNavigationDrawer(
                 drawerState = drawerState,
@@ -104,30 +98,21 @@ fun AppNavGraph(
                     )
                 }
             ) {
-                Scaffold(
-                    topBar = {
-                        AppTopBar(
-                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                            onHome = null,
-                            onLogin = null,
-                            onRegister = null
-                        )
+                // YA NO HAY SCAFFOLD AQUÍ. HomeScreen maneja su propia estructura.
+                HomeScreen(
+                    postViewModel = postViewModel,
+                    authViewModel = authViewModel,
+                    onCreatePostClick = {
+                        navController.navigate(Route.NewPost.path)
+                    },
+                    onNavigateToAdmin = {
+                        navController.navigate("admin_users")
+                    },
+                    // Pasamos la acción de abrir el Drawer a HomeScreen
+                    onOpenDrawer = {
+                        scope.launch { drawerState.open() }
                     }
-                ) { innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)) {
-                        HomeScreen(
-                            postViewModel = postViewModel,
-                            authViewModel = authViewModel,
-                            onCreatePostClick = {
-                                navController.navigate(Route.NewPost.path)
-                            },
-                            // Aquí es donde pasamos la navegación a admin si tu HomeScreen lo requiere
-                            onNavigateToAdmin = {
-                                navController.navigate("admin_users")
-                            }
-                        )
-                    }
-                }
+                )
             }
         }
 
@@ -136,7 +121,7 @@ fun AppNavGraph(
             if (currentUser != null) {
                 ProfileScreen(
                     authViewModel = authViewModel,
-                    user = currentUser!!,
+                    postViewModel = postViewModel,
                     onLogout = {
                         authViewModel.logout()
                         navController.navigate(Route.Login.path) {
@@ -175,7 +160,7 @@ fun AppNavGraph(
             )
         }
 
-        // 6. ADMINISTRACIÓN (PANTALLA DE USUARIOS)
+        // 6. ADMINISTRACIÓN
         composable("admin_users") {
             AdminUsersScreen(
                 adminViewModel = adminViewModel,

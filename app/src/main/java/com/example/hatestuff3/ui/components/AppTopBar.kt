@@ -1,121 +1,136 @@
 package com.example.hatestuff3.ui.components
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.hatestuff3.R
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTopBar(
     onOpenDrawer: () -> Unit,
-    // CAMBIO IMPORTANTE: Ahora todos son opcionales (pueden ser nulos)
-    // Esto permite que el NavGraph pase 'null' cuando quiera ocultar el botón.
     onHome: (() -> Unit)? = null,
     onLogin: (() -> Unit)? = null,
-    onRegister: (() -> Unit)? = null
+    // NUEVO PARÁMETRO: Acción para el admin
+    onAdminClick: (() -> Unit)? = null
 ) {
-    // Variable para controlar el estado del menú desplegable
     var showMenu by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
 
-    CenterAlignedTopAppBar(
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        title = {
-            Text(
-                text = "HateStuff",
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onOpenDrawer) {
-                Icon(imageVector = Icons.Filled.Menu, contentDescription = "Abrir Menú")
-            }
-        },
-        actions = {
-            // Lógica inteligente: Solo mostramos el icono si la función NO es nula.
+    val hateBlack = Color(0xFF000000)
+    val bloodRed = Color(0xFF8B0000)
+    val offWhite = Color(0xFFD1D1D1)
+    val darkGray = Color(0xFF1A1A1A)
 
-            // 1. Botón Home
-            if (onHome != null) {
-                IconButton(onClick = { onHome() }) {
-                    Icon(imageVector = Icons.Filled.Home, contentDescription = "Inicio")
-                }
+    Surface(
+        color = hateBlack,
+        modifier = Modifier.fillMaxWidth().drawBehind {
+            val strokeWidth = 3.dp.toPx()
+            val y = size.height - strokeWidth / 2
+            drawLine(Color(0xFF660000), Offset(0f, y), Offset(size.width, y), strokeWidth)
+        }
+    ) {
+        Column(modifier = Modifier.padding(bottom = 10.dp)) {
+            // PISO 1: LOGO
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+                Image(
+                    painter = painterResource(id = R.drawable.logoblanco),
+                    contentDescription = "Logo HateStuff",
+                    modifier = Modifier.height(55.dp),
+                    contentScale = ContentScale.Fit
+                )
             }
 
-            // 2. Botón Login
-            if (onLogin != null) {
-                IconButton(onClick = { onLogin() }) {
-                    Icon(imageVector = Icons.Filled.Person, contentDescription = "Login")
-                }
-            }
-
-            // 3. Botón Registro
-            if (onRegister != null) {
-                IconButton(onClick = { onRegister() }) {
-                    Icon(imageVector = Icons.Filled.PersonAdd, contentDescription = "Registro")
-                }
-            }
-
-            // 4. Botón Menú "Ver más" (Siempre visible)
-            IconButton(onClick = { showMenu = true }) {
-                Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "Ver más")
-            }
-
-            // Menú desplegable
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
+            // PISO 2: NAVEGACIÓN
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Solo mostramos las opciones del menú si existen
-                if (onHome != null) {
-                    DropdownMenuItem(
-                        text = { Text("Ir al Home") },
-                        onClick = {
-                            showMenu = false
-                            onHome()
-                        }
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(Icons.Filled.Menu, "Menú", tint = offWhite)
+                }
+
+                Box(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    HateSearchBar(
+                        text = searchText,
+                        onTextChange = { searchText = it },
+                        placeholder = "Buscar usuarios...",
+                        cursorColor = bloodRed,
+                        backgroundColor = darkGray,
+                        textColor = offWhite
                     )
                 }
 
-                if (onLogin != null) {
-                    DropdownMenuItem(
-                        text = { Text("Inicio de Sesión") },
-                        onClick = {
-                            showMenu = false
-                            onLogin()
-                        }
-                    )
+                // --- AQUÍ ESTÁ EL ESCUDO DE ADMIN ---
+                if (onAdminClick != null) {
+                    IconButton(onClick = onAdminClick) {
+                        Icon(Icons.Filled.Security, "Admin Panel", tint = bloodRed) // Rojo sangre para destacar autoridad
+                    }
                 }
 
-                if (onRegister != null) {
-                    DropdownMenuItem(
-                        text = { Text("Registro") },
-                        onClick = {
-                            showMenu = false
-                            onRegister()
+                // Menú de opciones
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, "Opciones", tint = offWhite)
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(hateBlack)
+                    ) {
+                        if (onHome != null) {
+                            DropdownMenuItem(
+                                text = { Text("HOME", color = bloodRed, fontWeight = FontWeight.Bold) },
+                                onClick = { showMenu = false; onHome() }
+                            )
                         }
-                    )
+                        if (onLogin != null) {
+                            DropdownMenuItem(
+                                text = { Text("LOGIN", color = bloodRed, fontWeight = FontWeight.Bold) },
+                                onClick = { showMenu = false; onLogin() }
+                            )
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun HateSearchBar(text: String, onTextChange: (String) -> Unit, placeholder: String, cursorColor: Color, backgroundColor: Color, textColor: Color) {
+    BasicTextField(
+        value = text,
+        onValueChange = onTextChange,
+        textStyle = TextStyle(color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+        cursorBrush = SolidColor(cursorColor),
+        singleLine = true,
+        decorationBox = { innerTextField ->
+            Row(modifier = Modifier.fillMaxWidth().height(40.dp).background(backgroundColor, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Search, null, tint = textColor.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    if (text.isEmpty()) Text(placeholder, color = textColor.copy(alpha = 0.5f), fontSize = 14.sp)
+                    innerTextField()
+                }
+                if (text.isNotEmpty()) IconButton(onClick = { onTextChange("") }, modifier = Modifier.size(18.dp)) { Icon(Icons.Filled.Close, "Borrar", tint = textColor.copy(alpha = 0.5f)) }
             }
         }
     )

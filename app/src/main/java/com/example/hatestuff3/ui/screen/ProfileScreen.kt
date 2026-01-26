@@ -1,159 +1,220 @@
 package com.example.hatestuff3.ui.screen
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.example.hatestuff3.data.local.database.user.UserEntity
+import com.example.hatestuff3.data.local.database.post.PostEntity
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
+import com.example.hatestuff3.ui.viewmodel.PostViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
-    user: UserEntity,
+    postViewModel: PostViewModel,
     onLogout: () -> Unit
 ) {
-    // Estados locales para la edición
-    var bio by remember { mutableStateOf(user.bio) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(user.profilePictureUri?.let { Uri.parse(it) }) }
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val allPosts by postViewModel.allPosts.collectAsState(initial = emptyList())
 
-    // Lanzador para seleccionar imagen de la galería
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) selectedImageUri = uri
+    // Filtrar solo los posts que pertenecen a este usuario
+    val myPosts = allPosts.filter { it.userName == currentUser?.name }
+
+    var isEditing by remember { mutableStateOf(false) }
+    var editedBio by remember { mutableStateOf(currentUser?.bio ?: "") }
+
+    // Estado para confirmar borrado desde el perfil
+    var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
+
+    val HateRed = Color(0xFFD32F2F)
+    val BackgroundBlack = Color.Black
+
+    // DIÁLOGO DE CONFIRMACIÓN (Pilar 2 en Perfil)
+    if (postToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { postToDelete = null },
+            containerColor = Color(0xFF121212),
+            title = { Text("¿ELIMINAR TU QUEJA?", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Text("¿Estás seguro de que quieres retirar este odio del abismo?", color = Color.Gray) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        postViewModel.deletePost(postToDelete!!)
+                        postToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = HateRed)
+                ) {
+                    Text("BORRAR", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { postToDelete = null }) {
+                    Text("CANCELAR", color = Color.White)
+                }
+            }
+        )
     }
 
     Scaffold(
-        containerColor = Color.Black,
+        containerColor = BackgroundBlack,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "EDITAR PERFIL",
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFC62828)
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212))
+            CenterAlignedTopAppBar(
+                title = { Text("MI PERFIL", color = Color.White, fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF121212)),
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar Sesión", tint = HateRed)
+                    }
+                }
             )
         }
-    ) { paddingValues ->
-        Column(
+    ) { padding ->
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp),
+                .padding(padding)
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- FOTO DE PERFIL EDITABLE (CORREGIDA) ---
-            Box(
-                modifier = Modifier
-                    .size(130.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1A1A1A))
-                    .border(2.dp, Color(0xFFC62828), CircleShape)
-                    .clickable { galleryLauncher.launch("image/*") },
-                contentAlignment = Alignment.Center
-            ) {
-                if (selectedImageUri == null) {
-                    // Si no hay imagen, mostramos el Icono (ImageVector) correctamente
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // --- AVATAR Y RANGO ---
+                Box(contentAlignment = Alignment.BottomEnd) {
                     Icon(
-                        imageVector = Icons.Default.Person,
+                        imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
-                        modifier = Modifier.size(65.dp),
-                        tint = Color.Gray
+                        tint = if (currentUser?.role == "ADMIN") Color(0xFFFFD700) else HateRed,
+                        modifier = Modifier.size(120.dp)
                     )
-                } else {
-                    // Si hay URI, usamos AsyncImage para cargar la foto real
-                    AsyncImage(
-                        model = selectedImageUri,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    when (currentUser?.role) {
+                        "ADMIN" -> Text("👑", fontSize = 28.sp)
+                        "MOD" -> Text("🛡️", fontSize = 28.sp)
+                    }
                 }
 
-                // Superposición "CAMBIAR"
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.BottomCenter
+                Text(
+                    text = currentUser?.name ?: "Sin Nombre",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Black
+                )
+
+                // Etiqueta de Rol
+                Surface(
+                    color = when(currentUser?.role) {
+                        "ADMIN" -> HateRed
+                        "MOD" -> Color(0xFF00BCD4)
+                        else -> Color(0xFF333333)
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
                 ) {
                     Text(
-                        "CAMBIAR",
+                        text = currentUser?.role ?: "USER",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // --- CAMPO DE BIOGRAFÍA ---
-            OutlinedTextField(
-                value = bio,
-                onValueChange = { bio = it },
-                label = { Text("Tu biografía del odio", color = Color(0xFFC62828)) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFFC62828),
-                    unfocusedBorderColor = Color.DarkGray,
-                    cursorColor = Color(0xFFC62828)
-                )
-            )
+                // --- SECCIÓN DE BIO ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("SOBRE MÍ", color = Color.Gray, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = {
+                                if (isEditing) {
+                                    authViewModel.updateProfile(currentUser!!.id, editedBio, null)
+                                }
+                                isEditing = !isEditing
+                            }) {
+                                Icon(
+                                    imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = if (isEditing) Color.Green else Color.White
+                                )
+                            }
+                        }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // --- BOTÓN GUARDAR (ESTILIZADO Y CORREGIDO) ---
-            Button(
-                onClick = {
-                    // Solo intentamos guardar si el ID no es 0 (usuario no cargado)
-                    if (user.id != 0L) {
-                        authViewModel.updateProfile(
-                            userId = user.id,
-                            newBio = bio,
-                            newPhotoUri = selectedImageUri?.toString()
-                        )
+                        if (isEditing) {
+                            TextField(
+                                value = editedBio,
+                                onValueChange = { editedBio = it },
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Black,
+                                    unfocusedContainerColor = Color.Black,
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = HateRed
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Text(
+                                text = currentUser?.bio ?: "No hay biografía aún...",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
-                },
-                enabled = bio.isNotBlank(), // No dejar guardar bios vacías
-                modifier = Modifier.fillMaxWidth().height(55.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("CONFIRMAR CAMBIOS", fontWeight = FontWeight.Black)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "MIS QUEJAS (${myPosts.size})",
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Botón para cerrar sesión
-            TextButton(onClick = onLogout) {
-                Text("CERRAR SESIÓN", color = Color.Gray, fontWeight = FontWeight.Medium)
+            // --- LISTA DE POSTS PROPIOS ---
+            if (myPosts.isEmpty()) {
+                item {
+                    Text(
+                        "No has esparcido odio todavía.",
+                        color = Color.DarkGray,
+                        modifier = Modifier.padding(top = 40.dp)
+                    )
+                }
+            } else {
+                items(myPosts, key = { it.id }) { post ->
+                    // Reutilizamos el PostItem que ya configuramos en HomeScreen
+                    PostItem(
+                        post = post,
+                        currentUser = currentUser,
+                        onLikeClick = { postViewModel.likePost(post) },
+                        onCommentClick = { /* Opcional: abrir hilos */ },
+                        onDeleteClick = { postToDelete = post }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
         }
     }

@@ -123,20 +123,19 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
                 if (existing != null) {
                     _state.update { it.copy(regEmailError = "Este correo ya existe", isLoading = false) }
                 } else {
-                    // --- LÓGICA DE ROLES AQUÍ ---
+                    // --- LÓGICA DE ROLES MEJORADA ---
                     val emailLower = s.regEmail.trim().lowercase()
                     val assignedRole = when {
                         emailLower.contains("admin") -> "ADMIN"
-                        emailLower.contains("mod") -> "MOD"
+                        emailLower.contains("mod") -> "MOD" // <--- Detección de Moderadores
                         else -> "USER"
                     }
 
-                    // Creamos el usuario con el rol detectado
                     val newUser = UserEntity(
                         name = s.regName.trim(),
                         email = s.regEmail.trim(),
                         password = s.regPass,
-                        role = assignedRole, // <--- Guardamos el rol
+                        role = assignedRole,
                         bio = "Nuevo usuario",
                         profilePictureUri = null
                     )
@@ -155,7 +154,6 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
 
     fun logout() {
         _currentUser.value = null
-        // Reiniciamos el estado para que los campos de texto se borren
         _state.value = AuthState()
     }
 
@@ -166,11 +164,7 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
     fun updateProfile(userId: Long, newBio: String, newPhotoUri: String?) {
         viewModelScope.launch {
             try {
-                // 1. Actualizar en Base de Datos
                 userDao.updateUserProfile(userId, newBio, newPhotoUri)
-
-                // 2. Refrescar el usuario en la app (para que se vea el cambio al instante)
-                // Obtenemos el usuario actualizado usando el email actual
                 _currentUser.value?.email?.let { email ->
                     val updatedUser = userDao.getUserByEmail(email)
                     _currentUser.value = updatedUser

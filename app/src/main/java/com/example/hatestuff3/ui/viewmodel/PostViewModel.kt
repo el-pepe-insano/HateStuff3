@@ -6,15 +6,34 @@ import com.example.hatestuff3.data.local.database.post.CommentDao
 import com.example.hatestuff3.data.local.database.post.CommentEntity
 import com.example.hatestuff3.data.local.database.post.PostDao
 import com.example.hatestuff3.data.local.database.post.PostEntity
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class PostViewModel(private val postDao: PostDao,private val commentDao: CommentDao) : ViewModel() {
+class PostViewModel(private val postDao: PostDao, private val commentDao: CommentDao) : ViewModel() {
 
-    // ESTO ES LO QUE BUSCA TU HOMESCREEN: 'allPosts'
+    // 1. ESTADO DE BÚSQUEDA
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
+    // 2. LISTA FILTRADA (Esta es la que usa ahora tu HomeScreen)
+    // Combina la base de datos con el texto de búsqueda
+    val filteredPosts: StateFlow<List<PostEntity>> = combine(
+        postDao.getAllPosts(),
+        _searchQuery
+    ) { posts, query ->
+        if (query.isBlank()) {
+            posts
+        } else {
+            // Filtra si el nombre del usuario contiene el texto (mayúsculas o minúsculas)
+            posts.filter { it.userName.contains(query, ignoreCase = true) }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Mantenemos esto por si acaso, pero la UI principal ahora usa filteredPosts
     val allPosts: StateFlow<List<PostEntity>> = postDao.getAllPosts()
         .stateIn(
             scope = viewModelScope,
@@ -22,19 +41,21 @@ class PostViewModel(private val postDao: PostDao,private val commentDao: Comment
             initialValue = emptyList()
         )
 
+    // 3. FUNCIÓN PARA CAMBIAR EL TEXTO DE BÚSQUEDA
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
     fun submitPost(content: String, imageUri: String?, userName: String, onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
             try {
                 val newPost = PostEntity(
-                    // NO pongas userId (ya no existe)
-                    // NO pongas id (se genera solo)
                     userName = userName,
                     content = content,
                     imageUri = imageUri,
-                    creationTime = System.currentTimeMillis(), // Antes era timestamp
+                    creationTime = System.currentTimeMillis(),
                     likes = 0
                 )
-                // Faltaba esto:
                 postDao.insertPost(newPost)
                 onSuccess()
             } catch (e: Exception) {
@@ -43,20 +64,18 @@ class PostViewModel(private val postDao: PostDao,private val commentDao: Comment
             }
         }
     }
-    // Función para dar Like recibiendo solo el ID
+
     fun likePost(post: PostEntity) {
         viewModelScope.launch {
-            // Creamos una copia con un like más
             val updatedPost = post.copy(likes = post.likes + 1)
             postDao.updatePost(updatedPost)
         }
     }
-    // Obtener comentarios de un post específico
+
     fun getComments(postId: Long): Flow<List<CommentEntity>> {
         return commentDao.getCommentsForPost(postId)
     }
 
-    // Enviar comentario
     fun sendComment(postId: Long, text: String, userName: String) {
         viewModelScope.launch {
             val comment = CommentEntity(
@@ -67,11 +86,13 @@ class PostViewModel(private val postDao: PostDao,private val commentDao: Comment
             commentDao.insertComment(comment)
         }
     }
+
     fun deletePost(post: PostEntity) {
         viewModelScope.launch {
             postDao.deletePost(post)
         }
     }
+
     fun deleteComment(comment: CommentEntity) {
         viewModelScope.launch {
             commentDao.deleteComment(comment)

@@ -41,6 +41,11 @@ fun RegisterScreen(
     // 3. Variables locales solo para UI (visibilidad de password)
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var nameError by remember { mutableStateOf<String?>(null) }
+
+    var email by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf<String?>(null) }
 
     // 4. Efecto de Navegación
     LaunchedEffect(state.isRegisterSuccess) {
