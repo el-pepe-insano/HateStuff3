@@ -283,7 +283,7 @@ fun PublicProfileScreen(
                             onLikeClick = { postViewModel.likePost(post) },
                             onCommentClick = { },
                             onDeleteClick = { postViewModel.deletePost(post) },
-                            onUserClick = { }
+                            onEditClick = { }
                         )
                     }
                 }

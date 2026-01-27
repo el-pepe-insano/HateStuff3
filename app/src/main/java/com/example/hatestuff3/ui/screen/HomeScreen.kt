@@ -47,11 +47,16 @@ fun HomeScreen(
     val sheetState = rememberModalBottomSheetState()
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostEntity?>(null) }
+
+    // Estados para borrar y editar
     var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
+    var postToEdit by remember { mutableStateOf<PostEntity?>(null) } // <--- NUEVO
+    var editContent by remember { mutableStateOf("") } // <--- NUEVO
 
     val BackgroundColor = Color(0xFF000000)
     val HateRed = Color(0xFF8B0000)
 
+    // --- DIÁLOGO DE BORRAR ---
     if (postToDelete != null) {
         AlertDialog(
             onDismissRequest = { postToDelete = null },
@@ -75,6 +80,41 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { postToDelete = null }) { Text("CANCELAR", color = Color.White) }
+            }
+        )
+    }
+
+    // --- DIÁLOGO DE EDITAR (NUEVO) ---
+    if (postToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { postToEdit = null },
+            containerColor = Color(0xFF1A1A1A),
+            title = { Text("CORREGIR ODIO", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = editContent,
+                    onValueChange = { editContent = it },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = HateRed,
+                        focusedBorderColor = HateRed,
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        postViewModel.updatePost(postToEdit!!, editContent)
+                        postToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = HateRed)
+                ) { Text("GUARDAR", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { postToEdit = null }) { Text("CANCELAR", color = Color.White) }
             }
         )
     }
@@ -127,7 +167,11 @@ fun HomeScreen(
                                 showBottomSheet = true
                             },
                             onDeleteClick = { postToDelete = post },
-                            // --- USAMOS EL NUEVO PARÁMETRO AQUÍ ---
+                            // --- LÓGICA DE EDICIÓN ---
+                            onEditClick = {
+                                editContent = post.content
+                                postToEdit = post
+                            },
                             onUserClick = { userName -> onUserClick(userName) }
                         )
                     }
@@ -146,6 +190,7 @@ fun HomeScreen(
         }
     }
 }
+
 @Composable
 fun PostItem(
     post: PostEntity,
@@ -153,6 +198,7 @@ fun PostItem(
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onEditClick: () -> Unit, // Parámetro para editar
     onUserClick: (String) -> Unit = {}
 ) {
     val HateRed = Color(0xFF8B0000)
@@ -176,6 +222,9 @@ fun PostItem(
         currentUser.role == "MOD" -> !isAuthorAdmin
         else -> false
     }
+
+    // Solo el autor original puede editar el texto
+    val canEdit = currentUser != null && currentUser.name == post.userName
 
     Card(
         modifier = Modifier
@@ -214,8 +263,19 @@ fun PostItem(
                     Text(text = "Esparciendo odio...", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                if (canDelete) {
-                    IconButton(onClick = onDeleteClick) { Icon(Icons.Default.Delete, null, tint = Color.DarkGray) }
+
+                // BOTONES DE ACCIÓN (Editar y Borrar)
+                Row {
+                    if (canEdit) {
+                        IconButton(onClick = onEditClick) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.Gray)
+                        }
+                    }
+                    if (canDelete) {
+                        IconButton(onClick = onDeleteClick) {
+                            Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = Color.DarkGray)
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

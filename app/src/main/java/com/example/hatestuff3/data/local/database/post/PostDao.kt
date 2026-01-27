@@ -33,4 +33,7 @@ interface PostDao {
 
     @Delete
     suspend fun deletePost(post: PostEntity)
+
+    @Query("UPDATE posts SET content = :newContent WHERE id = :postId")
+    suspend fun updatePostContent(postId: Long, newContent: String)
 }

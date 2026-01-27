@@ -120,4 +120,9 @@ class PostViewModel(private val postDao: PostDao, private val commentDao: Commen
             commentDao.deleteComment(comment)
         }
     }
+    fun updatePost(post: PostEntity, newText: String) {
+        viewModelScope.launch {
+            postDao.updatePostContent(post.id, newText)
+        }
+    }
 }

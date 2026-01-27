@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +32,8 @@ import com.example.hatestuff3.data.local.database.post.PostEntity
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import com.example.hatestuff3.copyImageToInternalStorage
+// Asegúrate de importar tu PostItem correctamente. Si está en otro paquete, ajústalo.
+// import com.example.hatestuff3.ui.components.PostItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,13 +49,22 @@ fun ProfileScreen(
 
     val myPosts = allPosts.filter { it.userName == currentUser?.name }
 
-    var isEditing by remember { mutableStateOf(false) }
+    // Estados de edición de PERFIL
+    var isEditingProfile by remember { mutableStateOf(false) }
     var editedName by remember { mutableStateOf("") }
     var editedBio by remember { mutableStateOf("") }
     var editedAvatarUri by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(currentUser, isEditing) {
-        if (!isEditing && currentUser != null) {
+    // Estados para borrar/editar POSTS
+    var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
+    var postToEdit by remember { mutableStateOf<PostEntity?>(null) } // Para editar post
+    var editContent by remember { mutableStateOf("") } // Texto del post a editar
+
+    val hateRed = Color(0xFF8B0000)
+    val backgroundBlack = Color.Black
+
+    LaunchedEffect(currentUser, isEditingProfile) {
+        if (!isEditingProfile && currentUser != null) {
             editedName = currentUser!!.name
             editedBio = currentUser!!.bio ?: ""
             editedAvatarUri = currentUser!!.profilePictureUri
@@ -64,11 +77,7 @@ fun ProfileScreen(
         uri?.let { editedAvatarUri = it.toString() }
     }
 
-    var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
-
-    val HateRed = Color(0xFF8B0000)
-    val BackgroundBlack = Color.Black
-
+    // --- DIÁLOGO BORRAR POST ---
     if (postToDelete != null) {
         AlertDialog(
             onDismissRequest = { postToDelete = null },
@@ -81,7 +90,7 @@ fun ProfileScreen(
                         postViewModel.deletePost(postToDelete!!)
                         postToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = HateRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = hateRed)
                 ) { Text("BORRAR", color = Color.White) }
             },
             dismissButton = {
@@ -90,17 +99,51 @@ fun ProfileScreen(
         )
     }
 
+    // --- DIÁLOGO EDITAR POST ---
+    if (postToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { postToEdit = null },
+            containerColor = Color(0xFF1A1A1A),
+            title = { Text("CORREGIR ODIO", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = editContent,
+                    onValueChange = { editContent = it },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = hateRed,
+                        focusedBorderColor = hateRed,
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        postViewModel.updatePost(postToEdit!!, editContent)
+                        postToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = hateRed)
+                ) { Text("GUARDAR", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { postToEdit = null }) { Text("CANCELAR", color = Color.White) }
+            }
+        )
+    }
+
     Scaffold(
-        containerColor = BackgroundBlack,
+        containerColor = backgroundBlack,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("MI PERFIL", color = Color.White, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF121212)),
-                // --- 2. AQUÍ AGREGAMOS EL BOTÓN DE ATRÁS ---
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver",
                             tint = Color.White
                         )
@@ -108,7 +151,7 @@ fun ProfileScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        if (isEditing) {
+                        if (isEditingProfile) {
                             currentUser?.let { user ->
                                 val finalAvatarPath = if (editedAvatarUri != null && editedAvatarUri != user.profilePictureUri) {
                                     copyImageToInternalStorage(context, Uri.parse(editedAvatarUri))
@@ -122,19 +165,19 @@ fun ProfileScreen(
                                     newAvatarUri = finalAvatarPath
                                 )
                             }
-                            isEditing = false
+                            isEditingProfile = false
                         } else {
-                            isEditing = true
+                            isEditingProfile = true
                         }
                     }) {
                         Icon(
-                            imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
-                            contentDescription = if (isEditing) "Guardar" else "Editar",
-                            tint = if (isEditing) Color.Green else Color.White
+                            imageVector = if (isEditingProfile) Icons.Default.Check else Icons.Default.Edit,
+                            contentDescription = if (isEditingProfile) "Guardar" else "Editar Perfil",
+                            tint = if (isEditingProfile) Color.Green else Color.White
                         )
                     }
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar Sesión", tint = HateRed)
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar Sesión", tint = hateRed)
                     }
                 }
             )
@@ -149,6 +192,7 @@ fun ProfileScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
+                // AVATAR
                 Box(contentAlignment = Alignment.BottomEnd) {
                     if (editedAvatarUri != null) {
                         AsyncImage(
@@ -157,8 +201,8 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(120.dp)
                                 .clip(CircleShape)
-                                .border(2.dp, if (isEditing) Color.Green else HateRed, CircleShape)
-                                .clickable(enabled = isEditing) {
+                                .border(2.dp, if (isEditingProfile) Color.Green else hateRed, CircleShape)
+                                .clickable(enabled = isEditingProfile) {
                                     photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 },
                             contentScale = ContentScale.Crop
@@ -167,16 +211,21 @@ fun ProfileScreen(
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = null,
-                            tint = if (currentUser?.role == "ADMIN") Color(0xFFFFD700) else HateRed,
+                            tint = if (currentUser?.role == "ADMIN") Color(0xFFFFD700) else hateRed,
                             modifier = Modifier
                                 .size(120.dp)
-                                .clickable(enabled = isEditing) {
+                                .clickable(enabled = isEditingProfile) {
                                     photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 }
                         )
                     }
-                    if (isEditing) {
-                        Box(modifier = Modifier.offset(x = 4.dp, y = 4.dp).clip(CircleShape).background(Color.Black).border(1.dp, Color.White, CircleShape).padding(6.dp)) {
+                    if (isEditingProfile) {
+                        Box(modifier = Modifier
+                            .offset(x = 4.dp, y = 4.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black)
+                            .border(1.dp, Color.White, CircleShape)
+                            .padding(6.dp)) {
                             Icon(Icons.Default.CameraAlt, contentDescription = "Cambiar Foto", tint = Color.White, modifier = Modifier.size(16.dp))
                         }
                     } else {
@@ -190,15 +239,15 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // NOMBRE
-                if (isEditing) {
+                if (isEditingProfile) {
                     OutlinedTextField(
                         value = editedName,
                         onValueChange = { editedName = it },
                         label = { Text("Nombre") },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                            cursorColor = HateRed, focusedBorderColor = HateRed, unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = HateRed, unfocusedLabelColor = Color.Gray
+                            cursorColor = hateRed, focusedBorderColor = hateRed, unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = hateRed, unfocusedLabelColor = Color.Gray
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(0.8f)
@@ -212,9 +261,9 @@ fun ProfileScreen(
                     )
                 }
 
-                if (!isEditing) {
+                if (!isEditingProfile) {
                     Surface(
-                        color = when(currentUser?.role) { "ADMIN" -> HateRed; "MOD" -> Color(0xFF00BCD4); else -> Color(0xFF333333) },
+                        color = when(currentUser?.role) { "ADMIN" -> hateRed; "MOD" -> Color(0xFF00BCD4); else -> Color(0xFF333333) },
                         shape = RoundedCornerShape(4.dp),
                         modifier = Modifier.padding(vertical = 8.dp)
                     ) {
@@ -238,13 +287,13 @@ fun ProfileScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("SOBRE MÍ", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (isEditing) {
+                        if (isEditingProfile) {
                             OutlinedTextField(
                                 value = editedBio,
                                 onValueChange = { editedBio = it },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                    cursorColor = HateRed, focusedBorderColor = HateRed, unfocusedBorderColor = Color.Transparent
+                                    cursorColor = hateRed, focusedBorderColor = hateRed, unfocusedBorderColor = Color.Transparent
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -273,9 +322,19 @@ fun ProfileScreen(
                         post = post,
                         currentUser = currentUser,
                         onLikeClick = { postViewModel.likePost(post) },
-                        onCommentClick = { },
+                        onCommentClick = { }, // En perfil quizás no mostramos comentarios por ahora
                         onDeleteClick = { postToDelete = post },
-                        onUserClick = { }
+
+                        // --- AQUÍ ESTABA EL ERROR ---
+                        // Usamos { _ -> } para ignorar el argumento del string, ya que en mi perfil
+                        // hacer clic en mi nombre no necesita hacer nada.
+                        onUserClick = { _ -> },
+
+                        // --- Y AGREGAMOS EL EDITAR ---
+                        onEditClick = {
+                            editContent = post.content
+                            postToEdit = post
+                        }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
