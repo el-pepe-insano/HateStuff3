@@ -32,8 +32,6 @@ import com.example.hatestuff3.data.local.database.post.PostEntity
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import com.example.hatestuff3.copyImageToInternalStorage
-// Asegúrate de importar tu PostItem correctamente. Si está en otro paquete, ajústalo.
-// import com.example.hatestuff3.ui.components.PostItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -324,13 +322,7 @@ fun ProfileScreen(
                         onLikeClick = { postViewModel.likePost(post) },
                         onCommentClick = { }, // En perfil quizás no mostramos comentarios por ahora
                         onDeleteClick = { postToDelete = post },
-
-                        // --- AQUÍ ESTABA EL ERROR ---
-                        // Usamos { _ -> } para ignorar el argumento del string, ya que en mi perfil
-                        // hacer clic en mi nombre no necesita hacer nada.
                         onUserClick = { _ -> },
-
-                        // --- Y AGREGAMOS EL EDITAR ---
                         onEditClick = {
                             editContent = post.content
                             postToEdit = post
