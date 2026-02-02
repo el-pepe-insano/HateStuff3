@@ -3,21 +3,21 @@ package com.example.hatestuff3.ui.viewmodel
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.hatestuff3.data.local.database.user.UserDao
+import com.example.hatestuff3.data.local.database.repository.UserRepository
 import com.example.hatestuff3.data.local.database.user.UserEntity
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AuthState(
-    // Campos de Login
     val loginEmail: String = "",
     val loginPass: String = "",
     val loginError: String? = null,
 
-    // Campos de Registro
     val regName: String = "",
     val regNameError: String? = null,
     val regEmail: String = "",
@@ -27,13 +27,12 @@ data class AuthState(
     val regConfirm: String = "",
     val regConfirmError: String? = null,
 
-    // Estados generales
     val isLoading: Boolean = false,
     val isLoginSuccess: Boolean = false,
     val isRegisterSuccess: Boolean = false
 )
 
-class AuthViewModel(private val userDao: UserDao) : ViewModel() {
+class AuthViewModel(private val repository: UserRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -41,27 +40,15 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
     private val _currentUser = MutableStateFlow<UserEntity?>(null)
     val currentUser: StateFlow<UserEntity?> = _currentUser
 
-    // --- EVENTOS DE CAMBIO DE TEXTO  ---
-    fun onLoginEmailChange(text: String) {
-        _state.update { it.copy(loginEmail = text, loginError = null) }
-    }
-    fun onLoginPassChange(text: String) {
-        _state.update { it.copy(loginPass = text, loginError = null) }
-    }
-    fun onRegNameChange(text: String) {
-        _state.update { it.copy(regName = text, regNameError = null) }
-    }
-    fun onRegEmailChange(text: String) {
-        _state.update { it.copy(regEmail = text, regEmailError = null) }
-    }
-    fun onRegPassChange(text: String) {
-        _state.update { it.copy(regPass = text, regPassError = null) }
-    }
-    fun onRegConfirmChange(text: String) {
-        _state.update { it.copy(regConfirm = text, regConfirmError = null) }
-    }
+    // --- MANEJO DE TEXTO EN UI (Igual que antes) ---
+    fun onLoginEmailChange(text: String) { _state.update { it.copy(loginEmail = text, loginError = null) } }
+    fun onLoginPassChange(text: String) { _state.update { it.copy(loginPass = text, loginError = null) } }
+    fun onRegNameChange(text: String) { _state.update { it.copy(regName = text, regNameError = null) } }
+    fun onRegEmailChange(text: String) { _state.update { it.copy(regEmail = text, regEmailError = null) } }
+    fun onRegPassChange(text: String) { _state.update { it.copy(regPass = text, regPassError = null) } }
+    fun onRegConfirmChange(text: String) { _state.update { it.copy(regConfirm = text, regConfirmError = null) } }
 
-    // --- LOGIN ---
+    // --- LOGIN (Conectado a Repository) ---
     fun login() {
         val email = _state.value.loginEmail.trim()
         val pass = _state.value.loginPass.trim()
@@ -73,82 +60,64 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
 
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            try {
-                val user = userDao.getUserByEmail(email)
-                if (user != null && user.password == pass) {
-                    _currentUser.value = user
-                    _state.update { it.copy(isLoginSuccess = true, isLoading = false) }
-                } else {
-                    _state.update { it.copy(loginError = "Credenciales incorrectas", isLoading = false) }
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(loginError = "Error al conectar", isLoading = false) }
+
+            // Llamada al servidor
+            val result = repository.login(email, pass)
+
+            result.onSuccess { user ->
+                _currentUser.value = user
+                _state.update { it.copy(isLoginSuccess = true, isLoading = false) }
+            }.onFailure {
+                _state.update { it.copy(loginError = "Credenciales incorrectas o error de red", isLoading = false) }
             }
         }
     }
 
-    // --- REGISTRO CON VALIDACIONES Y ROLES ---
+    // --- REGISTRO (Conectado a Repository) ---
     fun register() {
         val s = _state.value
-        var hasError = false
-
-        // Validaciones
-        if (s.regName.isBlank()) {
-            _state.update { it.copy(regNameError = "El nombre es obligatorio") }
-            hasError = true
-        }
-        if (s.regEmail.isBlank()) {
-            _state.update { it.copy(regEmailError = "El correo es obligatorio") }
-            hasError = true
-        } else if (!Patterns.EMAIL_ADDRESS.matcher(s.regEmail).matches()) {
-            _state.update { it.copy(regEmailError = "Formato de correo inválido") }
-            hasError = true
-        }
-        if (s.regPass.length < 4) {
-            _state.update { it.copy(regPassError = "Mínimo 4 caracteres") }
-            hasError = true
-        }
-        if (s.regPass != s.regConfirm) {
-            _state.update { it.copy(regConfirmError = "Las contraseñas no coinciden") }
-            hasError = true
-        }
-
-        if (hasError) return
+        if (!validateRegister(s)) return
 
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            try {
-                val existing = userDao.getUserByEmail(s.regEmail.trim())
-                if (existing != null) {
-                    _state.update { it.copy(regEmailError = "Este correo ya existe", isLoading = false) }
-                } else {
-                    // --- LÓGICA DE ROLES  ---
-                    val emailLower = s.regEmail.trim().lowercase()
-                    val assignedRole = when {
-                        emailLower.contains("admin") -> "ADMIN"
-                        emailLower.contains("mod") -> "MOD"
-                        else -> "USER"
-                    }
 
-                    val newUser = UserEntity(
-                        name = s.regName.trim(),
-                        email = s.regEmail.trim(),
-                        password = s.regPass,
-                        role = assignedRole,
-                        bio = "Nuevo usuario",
-                        profilePictureUri = null
-                    )
+            // Lógica de roles (se mantiene en cliente como pediste)
+            val emailLower = s.regEmail.trim().lowercase()
+            val assignedRole = when {
+                emailLower.contains("admin") -> "ADMIN"
+                emailLower.contains("mod") -> "MOD"
+                else -> "USER"
+            }
 
-                    userDao.insertUser(newUser)
+            val newUser = UserEntity(
+                name = s.regName.trim(),
+                email = s.regEmail.trim(),
+                password = s.regPass,
+                role = assignedRole,
+                bio = "Nuevo usuario",
+                profilePictureUri = null
+            )
 
-                    // Iniciamos sesión automáticamente tras el registro
-                    _currentUser.value = userDao.getUserByEmail(s.regEmail.trim())
-                    _state.update { it.copy(isRegisterSuccess = true, isLoading = false) }
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(isLoading = false) }
+            // Llamada al servidor
+            val result = repository.register(newUser)
+
+            result.onSuccess { registeredUser ->
+                _currentUser.value = registeredUser
+                _state.update { it.copy(isRegisterSuccess = true, isLoading = false) }
+            }.onFailure {
+                _state.update { it.copy(regEmailError = "Error al registrar (posible duplicado)", isLoading = false) }
             }
         }
+    }
+
+    private fun validateRegister(s: AuthState): Boolean {
+        var isValid = true
+        if (s.regName.isBlank()) { _state.update { it.copy(regNameError = "Nombre obligatorio") }; isValid = false }
+        if (s.regEmail.isBlank()) { _state.update { it.copy(regEmailError = "Correo obligatorio") }; isValid = false }
+        else if (!Patterns.EMAIL_ADDRESS.matcher(s.regEmail).matches()) { _state.update { it.copy(regEmailError = "Correo inválido") }; isValid = false }
+        if (s.regPass.length < 4) { _state.update { it.copy(regPassError = "Mínimo 4 caracteres") }; isValid = false }
+        if (s.regPass != s.regConfirm) { _state.update { it.copy(regConfirmError = "No coinciden") }; isValid = false }
+        return isValid
     }
 
     fun logout() {
@@ -160,30 +129,22 @@ class AuthViewModel(private val userDao: UserDao) : ViewModel() {
         _state.value = AuthState()
     }
 
-    // ---FUNCIÓN COMPLETA PARA ACTUALIZAR PERFIL (NOMBRE, BIO, FOTO) ---
+    // --- ACTUALIZAR PERFIL ---
     fun updateUserProfile(userId: Long, newName: String, newBio: String, newAvatarUri: String?) {
         viewModelScope.launch {
-            try {
-                val current = _currentUser.value ?: return@launch
-                val updatedUser = current.copy(
-                    name = newName,
-                    bio = newBio,
-                    profilePictureUri = newAvatarUri // Si es null, se borrará la foto. Si quieres mantener la anterior en caso de null, manéjalo en la UI.
-                )
+            val result = repository.updateProfile(userId, newBio, newAvatarUri)
 
-                userDao.updateUser(updatedUser)
-
-                // 4. Actualizamos el estado local
-                _currentUser.value = updatedUser
-
-            } catch (e: Exception) {
-                e.printStackTrace()
+            result.onSuccess {
+                // Actualizamos el estado local si el servidor dijo OK
+                val current = _currentUser.value
+                if (current != null) {
+                    _currentUser.value = current.copy(name = newName, bio = newBio, profilePictureUri = newAvatarUri)
+                }
             }
         }
     }
 
-    // Obtener información pública para el perfil de otros usuarios
-    fun getUserPublicInfo(userName: String): kotlinx.coroutines.flow.Flow<UserEntity?> {
-        return userDao.getUserByNameFlow(userName)
-    }
+    // OJO: La búsqueda por nombre se quitó porque la API no la soporta aún
+    // Si la necesitas, avísame para agregarla al Repository
+    fun getUserPublicInfo(userName: String): Flow<UserEntity?> = flow { emit(null) }
 }

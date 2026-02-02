@@ -5,7 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.example.hatestuff3.data.local.database.AppDatabase
+import com.example.hatestuff3.data.local.database.repository.PostRepository
+import com.example.hatestuff3.data.local.database.repository.UserRepository
+import com.example.hatestuff3.data.remote.RemoteModule
 import com.example.hatestuff3.navigation.AppNavGraph
 import com.example.hatestuff3.ui.theme.HateStuff3Theme
 import com.example.hatestuff3.ui.viewmodel.AdminViewModel
@@ -17,12 +19,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val userApi = RemoteModule.userApi
+        val postApi = RemoteModule.postApi
+        val commentApi = RemoteModule.commentApi
 
-        val database = AppDatabase.getDatabase(applicationContext)
+        val userRepository = UserRepository(userApi)
+        val postRepository = PostRepository(postApi, commentApi, applicationContext)
+
         val combinedFactory = AuthViewModelFactory(
-            userDao = database.userDao(),
-            postDao = database.postDao(),
-            commentDao = database.commentDao()
+            userRepository = userRepository,
+            postRepository = postRepository
         )
 
         setContent {
@@ -31,13 +37,12 @@ class MainActivity : ComponentActivity() {
 
                 val authViewModel: AuthViewModel = viewModel(factory = combinedFactory)
                 val postViewModel: PostViewModel = viewModel(factory = combinedFactory)
-                val adminViewModel: AdminViewModel = viewModel(factory = combinedFactory)
 
                 AppNavGraph(
                     navController = navController,
                     authViewModel = authViewModel,
                     postViewModel = postViewModel,
-                    adminViewModel = adminViewModel
+                    adminViewModel = viewModel(factory = combinedFactory)
                 )
             }
         }

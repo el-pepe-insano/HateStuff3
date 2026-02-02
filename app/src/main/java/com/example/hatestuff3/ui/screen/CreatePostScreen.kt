@@ -21,16 +21,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.hatestuff3.data.local.database.user.UserEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatePostScreen(
+    currentUser: UserEntity?,
     onPostCreated: (String, Uri?) -> Unit,
     onCancel: () -> Unit
 ) {
     var textState by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    val isPostButtonEnabled = textState.isNotBlank() || selectedImageUri != null
+    val isPostButtonEnabled = (textState.isNotBlank() || selectedImageUri != null) && currentUser != null
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -51,7 +53,11 @@ fun CreatePostScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212)),
                 actions = {
                     TextButton(
-                        onClick = { onPostCreated(textState, selectedImageUri) },
+                        onClick = { 
+                            if (currentUser != null) {
+                                onPostCreated(textState, selectedImageUri)
+                            }
+                        },
                         enabled = isPostButtonEnabled
                     ) {
                         Text(

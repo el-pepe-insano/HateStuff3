@@ -8,7 +8,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -41,7 +40,6 @@ fun AppNavGraph(
         navController = navController,
         startDestination = Route.Login.path
     ) {
-        // 1. LOGIN
         composable(Route.Login.path) {
             LoginScreen(
                 vm = authViewModel,
@@ -56,7 +54,6 @@ fun AppNavGraph(
             )
         }
 
-        // 2. REGISTRO
         composable(Route.Register.path) {
             RegisterScreen(
                 vm = authViewModel,
@@ -71,7 +68,6 @@ fun AppNavGraph(
             )
         }
 
-        // 3. HOME
         composable(Route.Home.path) {
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
@@ -121,7 +117,6 @@ fun AppNavGraph(
             }
         }
 
-        // 4. PERFIL PROPIO
         composable(Route.Profile.path) {
             if (currentUser != null) {
                 ProfileScreen(
@@ -144,24 +139,19 @@ fun AppNavGraph(
             }
         }
 
-        // 5. NEW POST
         composable(Route.NewPost.path) {
             val userState by authViewModel.currentUser.collectAsState()
-            val context = LocalContext.current
 
             CreatePostScreen(
+                currentUser = userState,
                 onPostCreated = { content, imageUri ->
                     userState?.let { user ->
-                        postViewModel.submitPost(
-                            context = context,
+                        postViewModel.createPost(
                             content = content,
-                            imageUri = imageUri?.toString(),
                             userName = user.name,
-                            onSuccess = {
-                                navController.popBackStack()
-                            },
-                            onError = { }
+                            imageUri = imageUri
                         )
+                        navController.popBackStack()
                     }
                 },
                 onCancel = {
@@ -170,7 +160,6 @@ fun AppNavGraph(
             )
         }
 
-        // 6. ADMINISTRACIÓN
         composable("admin_users") {
             AdminUsersScreen(
                 adminViewModel = adminViewModel,
@@ -178,7 +167,6 @@ fun AppNavGraph(
             )
         }
 
-        // 7. PERFIL PÚBLICO
         composable(
             route = "public_profile/{userName}",
             arguments = listOf(navArgument("userName") { type = NavType.StringType })

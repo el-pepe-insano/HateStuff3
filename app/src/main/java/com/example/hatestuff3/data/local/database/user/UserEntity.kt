@@ -14,5 +14,5 @@ data class UserEntity(
     val password: String,
     val bio: String = "",
     val profilePictureUri: String? = null,
-    val role: String = "USER"
+    val role: String? = "USER"
 )

@@ -1,128 +1,154 @@
 package com.example.hatestuff3.ui.viewmodel
 
-import android.content.Context // Importante para manejar archivos
-import android.net.Uri        // Importante para leer la imagen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.hatestuff3.data.local.database.post.CommentDao
-import com.example.hatestuff3.data.local.database.post.CommentEntity
-import com.example.hatestuff3.data.local.database.post.PostDao
-import com.example.hatestuff3.data.local.database.post.PostEntity
-import com.example.hatestuff3.copyImageToInternalStorage // Asegúrate de importar tu utilidad
-import kotlinx.coroutines.Dispatchers // Para mover el trabajo pesado fuera del hilo principal
-import kotlinx.coroutines.flow.*
+import com.example.hatestuff3.data.local.database.repository.PostRepository
+import com.example.hatestuff3.data.remote.dto.CommentDto
+import com.example.hatestuff3.data.remote.dto.PostDto
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-class PostViewModel(private val postDao: PostDao, private val commentDao: CommentDao) : ViewModel() {
+class PostViewModel(
+    private val postRepository: PostRepository
+) : ViewModel() {
 
-    // ESTADO DE BÚSQUEDA
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
+    private val _posts = MutableStateFlow<List<PostDto>>(emptyList())
+    val posts: StateFlow<List<PostDto>> = _posts.asStateFlow()
 
-    // LISTA FILTRADA
-    val filteredPosts: StateFlow<List<PostEntity>> = combine(
-        postDao.getAllPosts(),
-        _searchQuery
-    ) { posts, query ->
-        if (query.isBlank()) {
-            posts
-        } else {
-            posts.filter { it.userName.contains(query, ignoreCase = true) }
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    private val _activePostComments = MutableStateFlow<List<CommentDto>>(emptyList())
+    val activePostComments: StateFlow<List<CommentDto>> = _activePostComments.asStateFlow()
 
-    // Lista completa
-    val allPosts: StateFlow<List<PostEntity>> = postDao.getAllPosts()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // 3. CAMBIAR BÚSQUEDA
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
+    init {
+        fetchPosts()
     }
 
-    // --- FUNCIÓN MODIFICADA PARA GUARDAR IMÁGENES PERMANENTES ---
-    fun submitPost(
-        context: Context,
-        content: String,
-        imageUri: String?,
-        userName: String,
-        onSuccess: () -> Unit,
-        onError: () -> Unit
-    ) {
+    fun fetchPosts() {
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                // Paso 1: Procesar la imagen en segundo plano (IO)
-                val finalImagePath = withContext(Dispatchers.IO) {
-                    if (imageUri != null) {
-                        val originalUri = Uri.parse(imageUri)
-                        copyImageToInternalStorage(context, originalUri)
-                    } else {
-                        null
-                    }
-                }
-
-
-                val newPost = PostEntity(
-                    userName = userName,
-                    content = content,
-                    imageUri = finalImagePath,
-                    creationTime = System.currentTimeMillis(),
-                    likes = 0
-                )
-                postDao.insertPost(newPost)
-                onSuccess()
+                _posts.value = postRepository.getAllPosts()
             } catch (e: Exception) {
                 e.printStackTrace()
-                onError()
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
-    fun likePost(post: PostEntity) {
+    fun loadComments(postId: Long) {
         viewModelScope.launch {
-            val updatedPost = post.copy(likes = post.likes + 1)
-            postDao.updatePost(updatedPost)
+            try {
+                _activePostComments.value = emptyList()
+                val comments = postRepository.getComments(postId)
+                _activePostComments.value = comments
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
-    fun getComments(postId: Long): Flow<List<CommentEntity>> {
-        return commentDao.getCommentsForPost(postId)
-    }
-
-    fun sendComment(postId: Long, text: String, userName: String) {
+    fun createPost(content: String, userName: String, imageUri: android.net.Uri?) {
         viewModelScope.launch {
-            val comment = CommentEntity(
-                postId = postId,
-                userName = userName,
-                text = text
-            )
-            commentDao.insertComment(comment)
+            _isLoading.value = true
+            try {
+                postRepository.createPost(content, userName, imageUri)
+                fetchPosts()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
-    fun deletePost(post: PostEntity) {
+    fun likePost(postId: Long, userName: String) {
         viewModelScope.launch {
-            postDao.deletePost(post)
+            try {
+                // 1. Actualización optimista de la UI
+                _posts.update {
+                    it.map {
+                        if (it.id == postId) {
+                            val isLiked = it.likedBy.contains(userName)
+                            val newLikes = if (isLiked) it.likes - 1 else it.likes + 1
+                            val newLikedBy = if (isLiked) {
+                                it.likedBy - userName
+                            } else {
+                                it.likedBy + userName
+                            }
+                            it.copy(likes = newLikes, likedBy = newLikedBy)
+                        } else {
+                            it
+                        }
+                    }
+                }
+
+                // 2. Llamada a la API
+                postRepository.likePost(postId, userName)
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // 3. Revertir si hay error (opcional pero recomendado)
+                fetchPosts()
+            }
         }
     }
 
-    fun deleteComment(comment: CommentEntity) {
+    fun sendComment(postId: Long, content: String, userName: String) {
         viewModelScope.launch {
-            commentDao.deleteComment(comment)
+            try {
+                val comment = CommentDto(
+                    postId = postId,
+                    content = content,
+                    userName = userName
+                )
+                postRepository.createComment(comment)
+                loadComments(postId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
-    fun updatePost(post: PostEntity, newText: String) {
+
+    fun deleteComment(commentId: Long, postId: Long) {
         viewModelScope.launch {
-            postDao.updatePostContent(post.id, newText)
+            try {
+                postRepository.deleteComment(commentId)
+                loadComments(postId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deletePost(postId: Long) {
+        viewModelScope.launch {
+            try {
+                postRepository.deletePost(postId)
+                fetchPosts()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updatePost(postId: Long, content: String) {
+        viewModelScope.launch {
+            try {
+                val postToUpdate = _posts.value.find { it.id == postId }
+                if (postToUpdate != null) {
+                    val updatedPost = postToUpdate.copy(content = content)
+                    postRepository.updatePost(postId, updatedPost)
+                    fetchPosts()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }

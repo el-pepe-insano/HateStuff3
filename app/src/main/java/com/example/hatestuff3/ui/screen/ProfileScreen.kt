@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.hatestuff3.data.local.database.post.PostEntity
+import com.example.hatestuff3.data.remote.dto.PostDto
 import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 import com.example.hatestuff3.ui.viewmodel.PostViewModel
 import com.example.hatestuff3.copyImageToInternalStorage
@@ -42,30 +42,32 @@ fun ProfileScreen(
     onBack: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
-    val allPosts by postViewModel.allPosts.collectAsState(initial = emptyList())
+    val allPosts by postViewModel.posts.collectAsState()
     val context = LocalContext.current
 
-    val myPosts = allPosts.filter { it.userName == currentUser?.name }
+    val myPosts = remember(allPosts, currentUser) {
+        val name = currentUser?.name
+        if (name == null) emptyList() else allPosts.filter { it.userName == name }
+    }
 
-    // Estados de edición de PERFIL
     var isEditingProfile by remember { mutableStateOf(false) }
     var editedName by remember { mutableStateOf("") }
     var editedBio by remember { mutableStateOf("") }
     var editedAvatarUri by remember { mutableStateOf<String?>(null) }
 
-    // Estados para borrar/editar POSTS
-    var postToDelete by remember { mutableStateOf<PostEntity?>(null) }
-    var postToEdit by remember { mutableStateOf<PostEntity?>(null) } // Para editar post
-    var editContent by remember { mutableStateOf("") } // Texto del post a editar
+    var postToDelete by remember { mutableStateOf<PostDto?>(null) }
+    var postToEdit by remember { mutableStateOf<PostDto?>(null) }
+    var editContent by remember { mutableStateOf("") }
 
     val hateRed = Color(0xFF8B0000)
-    val backgroundBlack = Color.Black
 
-    LaunchedEffect(currentUser, isEditingProfile) {
-        if (!isEditingProfile && currentUser != null) {
-            editedName = currentUser!!.name
-            editedBio = currentUser!!.bio ?: ""
-            editedAvatarUri = currentUser!!.profilePictureUri
+    LaunchedEffect(currentUser) {
+        currentUser?.let {
+            if (!isEditingProfile) {
+                editedName = it.name
+                editedBio = it.bio ?: ""
+                editedAvatarUri = it.profilePictureUri
+            }
         }
     }
 
@@ -75,127 +77,85 @@ fun ProfileScreen(
         uri?.let { editedAvatarUri = it.toString() }
     }
 
-    // --- DIÁLOGO BORRAR POST ---
-    if (postToDelete != null) {
+    postToDelete?.let { post ->
         AlertDialog(
             onDismissRequest = { postToDelete = null },
             containerColor = Color(0xFF121212),
-            title = { Text("¿ELIMINAR TU QUEJA?", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("¿Estás seguro de que quieres retirar este odio del abismo?", color = Color.Gray) },
+            title = { Text("¿ELIMINAR?", color = Color.White) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        postViewModel.deletePost(postToDelete!!)
-                        postToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = hateRed)
-                ) { Text("BORRAR", color = Color.White) }
-            },
-            dismissButton = {
-                TextButton(onClick = { postToDelete = null }) { Text("CANCELAR", color = Color.White) }
+                Button(onClick = {
+                    post.id?.let { postViewModel.deletePost(it) }
+                    postToDelete = null
+                }, colors = ButtonDefaults.buttonColors(containerColor = hateRed)) {
+                    Text("BORRAR")
+                }
             }
         )
     }
 
-    // --- DIÁLOGO EDITAR POST ---
-    if (postToEdit != null) {
+    postToEdit?.let { post ->
         AlertDialog(
             onDismissRequest = { postToEdit = null },
             containerColor = Color(0xFF1A1A1A),
-            title = { Text("CORREGIR ODIO", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("EDITAR", color = Color.White) },
             text = {
-                OutlinedTextField(
-                    value = editContent,
-                    onValueChange = { editContent = it },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = hateRed,
-                        focusedBorderColor = hateRed,
-                        unfocusedBorderColor = Color.Gray
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = editContent, onValueChange = { editContent = it })
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        postViewModel.updatePost(postToEdit!!, editContent)
-                        postToEdit = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = hateRed)
-                ) { Text("GUARDAR", color = Color.White) }
-            },
-            dismissButton = {
-                TextButton(onClick = { postToEdit = null }) { Text("CANCELAR", color = Color.White) }
+                Button(onClick = {
+                    post.id?.let { postViewModel.updatePost(it, editContent) }
+                    postToEdit = null
+                }, colors = ButtonDefaults.buttonColors(containerColor = hateRed)) {
+                    Text("GUARDAR")
+                }
             }
         )
     }
 
     Scaffold(
-        containerColor = backgroundBlack,
+        containerColor = Color.Black,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("MI PERFIL", color = Color.White, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color(0xFF121212)),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Color.White)
                     }
                 },
                 actions = {
                     IconButton(onClick = {
                         if (isEditingProfile) {
                             currentUser?.let { user ->
-                                val finalAvatarPath = if (editedAvatarUri != null && editedAvatarUri != user.profilePictureUri) {
+                                val finalPath = if (editedAvatarUri != null && editedAvatarUri != user.profilePictureUri) {
                                     copyImageToInternalStorage(context, Uri.parse(editedAvatarUri))
-                                } else {
-                                    editedAvatarUri
-                                }
-                                authViewModel.updateUserProfile(
-                                    userId = user.id,
-                                    newName = editedName,
-                                    newBio = editedBio,
-                                    newAvatarUri = finalAvatarPath
-                                )
+                                } else editedAvatarUri
+
+                                authViewModel.updateUserProfile(user.id, editedName, editedBio, finalPath)
                             }
                             isEditingProfile = false
-                        } else {
-                            isEditingProfile = true
-                        }
+                        } else isEditingProfile = true
                     }) {
-                        Icon(
-                            imageVector = if (isEditingProfile) Icons.Default.Check else Icons.Default.Edit,
-                            contentDescription = if (isEditingProfile) "Guardar" else "Editar Perfil",
-                            tint = if (isEditingProfile) Color.Green else Color.White
-                        )
+                        Icon(if (isEditingProfile) Icons.Default.Check else Icons.Default.Edit, null, tint = Color.White)
                     }
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar Sesión", tint = hateRed)
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = hateRed)
                     }
                 }
             )
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                // AVATAR
                 Box(contentAlignment = Alignment.BottomEnd) {
-                    if (editedAvatarUri != null) {
+                    if (!editedAvatarUri.isNullOrEmpty()) {
                         AsyncImage(
                             model = editedAvatarUri,
-                            contentDescription = "Avatar",
+                            contentDescription = null,
                             modifier = Modifier
                                 .size(120.dp)
                                 .clip(CircleShape)
@@ -209,124 +169,53 @@ fun ProfileScreen(
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = null,
-                            tint = if (currentUser?.role == "ADMIN") Color(0xFFFFD700) else hateRed,
                             modifier = Modifier
                                 .size(120.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, if (isEditingProfile) Color.Green else hateRed, CircleShape)
                                 .clickable(enabled = isEditingProfile) {
                                     photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
+                                },
+                            tint = Color.Gray
                         )
-                    }
-                    if (isEditingProfile) {
-                        Box(modifier = Modifier
-                            .offset(x = 4.dp, y = 4.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black)
-                            .border(1.dp, Color.White, CircleShape)
-                            .padding(6.dp)) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Cambiar Foto", tint = Color.White, modifier = Modifier.size(16.dp))
-                        }
-                    } else {
-                        when (currentUser?.role) {
-                            "ADMIN" -> Text("👑", fontSize = 28.sp)
-                            "MOD" -> Text("🛡️", fontSize = 28.sp)
-                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // NOMBRE
                 if (isEditingProfile) {
                     OutlinedTextField(
                         value = editedName,
                         onValueChange = { editedName = it },
-                        label = { Text("Nombre") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                            cursorColor = hateRed, focusedBorderColor = hateRed, unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = hateRed, unfocusedLabelColor = Color.Gray
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(0.8f)
+                        modifier = Modifier.fillMaxWidth(0.8f),
+                        label = { Text("Nombre") }
                     )
                 } else {
-                    Text(
-                        text = currentUser?.name ?: "Sin Nombre",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-
-                if (!isEditingProfile) {
-                    Surface(
-                        color = when(currentUser?.role) { "ADMIN" -> hateRed; "MOD" -> Color(0xFF00BCD4); else -> Color(0xFF333333) },
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = currentUser?.role ?: "USER",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // BIO
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("SOBRE MÍ", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (isEditingProfile) {
-                            OutlinedTextField(
-                                value = editedBio,
-                                onValueChange = { editedBio = it },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                    cursorColor = hateRed, focusedBorderColor = hateRed, unfocusedBorderColor = Color.Transparent
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            Text(
-                                text = currentUser?.bio?.ifBlank { "Sin descripción..." } ?: "Sin descripción...",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    }
+                    Text(currentUser?.name ?: "Cargando...", color = Color.White, style = MaterialTheme.typography.headlineMedium)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-                Text("MIS QUEJAS (${myPosts.size})", modifier = Modifier.fillMaxWidth(), color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(12.dp))
             }
 
             if (myPosts.isEmpty()) {
-                item {
-                    Text("No has esparcido odio todavía.", color = Color.DarkGray, modifier = Modifier.padding(top = 40.dp))
-                }
+                item { Text("Aún no hay quejas.", color = Color.Gray, modifier = Modifier.padding(20.dp)) }
             } else {
-                items(myPosts, key = { it.id }) { post ->
+                items(myPosts, key = { it.id ?: 0L }) { post ->
                     PostItem(
                         post = post,
                         currentUser = currentUser,
-                        onLikeClick = { postViewModel.likePost(post) },
-                        onCommentClick = { }, // En perfil quizás no mostramos comentarios por ahora
+                        onLikeClick = {
+                            if (currentUser != null && post.id != null) {
+                                postViewModel.likePost(post.id, currentUser!!.name)
+                            }
+                        },
+                        onCommentClick = { /* Opcional en Perfil */ },
                         onDeleteClick = { postToDelete = post },
-                        onUserClick = { _ -> },
                         onEditClick = {
                             editContent = post.content
                             postToEdit = post
-                        }
+                        },
+                        onUserClick = { /* Ya estamos aquí */ }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }

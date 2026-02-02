@@ -2,31 +2,25 @@ package com.example.hatestuff3.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.example.hatestuff3.data.local.database.post.CommentDao
-import com.example.hatestuff3.data.local.database.post.PostDao
-import com.example.hatestuff3.data.local.database.user.UserDao
+import com.example.hatestuff3.data.local.database.repository.PostRepository
+import com.example.hatestuff3.data.local.database.repository.UserRepository
 
-// Esta clase ahora acepta los 3 DAOs para repartirlos a los 3 ViewModels
 class AuthViewModelFactory(
-    private val userDao: UserDao,
-    private val postDao: PostDao,
-    private val commentDao: CommentDao
+    private val userRepository: UserRepository,
+    private val postRepository: PostRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
-            // 1. AuthViewModel: Para login y registro
             modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
-                AuthViewModel(userDao) as T
+                AuthViewModel(userRepository) as T
             }
-            // 2. PostViewModel: Para publicaciones y comentarios
             modelClass.isAssignableFrom(PostViewModel::class.java) -> {
-                PostViewModel(postDao, commentDao) as T
+                PostViewModel(postRepository) as T
             }
-            // 3. AdminViewModel: Para gestionar usuarios
             modelClass.isAssignableFrom(AdminViewModel::class.java) -> {
-                AdminViewModel(userDao) as T
+                AdminViewModel(userRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

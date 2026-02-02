@@ -1,6 +1,6 @@
 package com.example.hatestuff3.ui.screen
 
-import android.annotation.SuppressLint // IMPORTANTE
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,15 +37,21 @@ fun PublicProfileScreen(
     authViewModel: AuthViewModel,
     onBackClick: () -> Unit
 ) {
-    val allPosts by postViewModel.filteredPosts.collectAsState()
-    val userPosts = allPosts.filter { it.userName == userName }
+    val allPosts by postViewModel.posts.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
+
+    // Filtrado optimizado con remember
+    val userPosts = remember(allPosts, userName) {
+        allPosts.filter { it.userName == userName }
+    }
+
+    // Obtenemos la info del usuario (Asegúrate de que esta función devuelva un StateFlow o Flow)
     val targetUserProfile by authViewModel.getUserPublicInfo(userName).collectAsState(initial = null)
 
-    // 2. Colores y Estilos
+    // Colores de la marca
     val BackgroundColor = Color(0xFF000000)
     val SurfaceColor = Color(0xFF121212)
-    val HateRed = Color(0xFF8B0000) // Rojo Sangre
+    val HateRed = Color(0xFF8B0000)
     val ModeratorBlue = Color(0xFF00BCD4)
     val UserGray = Color(0xFF757575)
 
@@ -53,19 +59,14 @@ fun PublicProfileScreen(
     val isProfileAdmin = realRole == "ADMIN"
     val isProfileMod = realRole == "MOD"
 
-    // Color principal del perfil según el rol
     val profileAccentColor = when {
         isProfileAdmin -> HateRed
         isProfileMod -> ModeratorBlue
         else -> UserGray
     }
 
-    // Degradado para el fondo del banner
     val bannerBrush = Brush.verticalGradient(
-        colors = listOf(
-            profileAccentColor.copy(alpha = 0.5f),
-            BackgroundColor
-        )
+        colors = listOf(profileAccentColor.copy(alpha = 0.4f), BackgroundColor)
     )
 
     Scaffold(
@@ -77,217 +78,141 @@ fun PublicProfileScreen(
                     IconButton(
                         onClick = onBackClick,
                         modifier = Modifier
+                            .padding(8.dp)
                             .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                            .size(40.dp)
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Volver", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { paddingValues ->
-
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BackgroundColor),
-            contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding() + 16.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-
-            // CABECERA DEL PERFIL
             item {
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
-                            .background(bannerBrush)
-                    )
+                    // Banner
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(bannerBrush))
 
-                    // Contenido del Perfil
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 100.dp, start = 16.dp, end = 16.dp),
+                            .padding(top = 90.dp, start = 16.dp, end = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Avatar
+                        // Avatar dinámico
                         Box(contentAlignment = Alignment.BottomEnd) {
                             Surface(
                                 shape = CircleShape,
-                                border = if (isProfileAdmin || isProfileMod) BorderStroke(3.dp, profileAccentColor) else null,
-                                shadowElevation = 10.dp,
+                                border = BorderStroke(2.dp, profileAccentColor),
                                 color = SurfaceColor,
                                 modifier = Modifier.size(110.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = if(isProfileAdmin || isProfileMod) profileAccentColor else Color.LightGray,
-                                        modifier = Modifier.size(60.dp)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = profileAccentColor,
+                                    modifier = Modifier.padding(25.dp)
+                                )
                             }
-
-                            // Icono pequeño de rol
                             if (isProfileAdmin || isProfileMod) {
-                                Surface(
-                                    color = BackgroundColor,
-                                    shape = CircleShape,
-                                    modifier = Modifier.offset(x = 6.dp, y = (-6).dp).border(2.dp, BackgroundColor, CircleShape)
-                                ) {
-                                    Text(
-                                        text = if (isProfileAdmin) "👑" else "🛡️",
-                                        fontSize = 22.sp,
-                                        modifier = Modifier.padding(4.dp)
-                                    )
-                                }
+                                Text(
+                                    text = if (isProfileAdmin) "👑" else "🛡️",
+                                    fontSize = 24.sp,
+                                    modifier = Modifier.offset(x = (4).dp, y = (4).dp)
+                                )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Nombre
-                        Text(
-                            text = userName,
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
+                        Text(userName, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Badge de Rol (Chip)
+                        // Badge de Rol
                         Surface(
-                            color = profileAccentColor.copy(alpha = 0.15f),
+                            color = profileAccentColor.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.dp, profileAccentColor.copy(alpha = 0.6f))
+                            border = BorderStroke(1.dp, profileAccentColor.copy(alpha = 0.5f)),
+                            modifier = Modifier.padding(top = 8.dp)
                         ) {
                             Text(
-                                text = when {
-                                    isProfileAdmin -> "ADMINISTRADOR SUPREMO"
-                                    isProfileMod -> "MODERADOR DEL ABISMO"
-                                    else -> "HABITANTE DEL ABISMO"
-                                }.uppercase(),
+                                text = realRole.uppercase(),
                                 color = profileAccentColor,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Descripción
-                        val description = targetUserProfile?.bio
+                        // Bio
                         Text(
-                            text = if (!description.isNullOrBlank()) "\"$description\"" else "Sin manifiesto definido.",
-                            color = if (!description.isNullOrBlank()) Color.White.copy(alpha = 0.8f) else Color.Gray,
+                            text = targetUserProfile?.bio?.let { "\"$it\"" } ?: "Sin manifiesto.",
+                            color = Color.Gray,
                             fontSize = 14.sp,
                             fontStyle = FontStyle.Italic,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .padding(vertical = 4.dp),
-                            lineHeight = 20.sp
+                            modifier = Modifier.padding(top = 16.dp, start = 20.dp, end = 20.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Panel de Estadísticas
+                        // Estadísticas
                         Row(
                             modifier = Modifier
+                                .padding(top = 24.dp)
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(SurfaceColor)
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                                .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                                .background(SurfaceColor, RoundedCornerShape(16.dp))
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "${userPosts.size}",
-                                    color = Color.White,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "ODIOS ESPARCIDOS",
-                                    color = Color.Gray,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
-                            Box(modifier = Modifier.height(30.dp).width(1.dp).background(Color.White.copy(alpha = 0.1f)))
-
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "---", // Placeholder
-                                    color = Color.Gray,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "SEGUIDORES",
-                                    color = Color.Gray,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
+                            StatItem(userPosts.size.toString(), "ODIOS")
+                            Divider(Modifier.height(30.dp).width(1.dp), color = Color.DarkGray)
+                            StatItem(realRole, "RANGO")
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = SurfaceColor, thickness = 2.dp)
             }
 
-            // --- LISTA DE POSTS ---
+            // LISTA DE POSTS
             if (userPosts.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.Block,
-                                contentDescription = null,
-                                tint = Color.DarkGray,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Silencio absoluto...",
-                                color = Color.Gray,
-                                fontStyle = FontStyle.Italic
-                            )
-                        }
-                    }
+                    Text(
+                        "Este usuario no ha esparcido odio todavía.",
+                        color = Color.DarkGray,
+                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
-                items(userPosts) { post ->
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                items(userPosts, key = { it.id ?: 0L }) { post ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                         PostItem(
                             post = post,
                             currentUser = currentUser,
-                            onLikeClick = { postViewModel.likePost(post) },
-                            onCommentClick = { },
-                            onDeleteClick = { postViewModel.deletePost(post) },
-                            onEditClick = { }
+                            // CORRECCIÓN: firma completa de onLikeClick
+                            onLikeClick = {
+                                if (currentUser != null && post.id != null) {
+                                    postViewModel.likePost(post.id, currentUser!!.name)
+                                }
+                            },
+                            onCommentClick = { /* Ver hilo */ },
+                            onDeleteClick = { post.id?.let { postViewModel.deletePost(it) } },
+                            onEditClick = { /* No editable desde perfil público */ },
+                            onUserClick = { /* Ya estamos aquí */ }
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun StatItem(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
