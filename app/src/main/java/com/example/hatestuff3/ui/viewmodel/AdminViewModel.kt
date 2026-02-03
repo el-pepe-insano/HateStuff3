@@ -4,48 +4,61 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hatestuff3.data.local.database.repository.UserRepository
 import com.example.hatestuff3.data.local.database.user.UserEntity
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class AdminViewModel(private val repository: UserRepository) : ViewModel() {
+@HiltViewModel
+class AdminViewModel @Inject constructor(
+    private val repository: UserRepository
+) : ViewModel() {
 
-    // Estado interno (Lista mutable)
     private val _users = MutableStateFlow<List<UserEntity>>(emptyList())
-    // Estado público (Solo lectura para la UI)
     val allUsers: StateFlow<List<UserEntity>> = _users.asStateFlow()
 
-    init {
-        loadUsers()
-    }
+    private val _statusMessage = MutableStateFlow<String?>(null)
+    val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
-    // Función para descargar la lista desde el servidor
-    fun loadUsers() {
+    // CORRECCIÓN: Renombramos la función y quitamos el init
+    fun fetchAllUsers(adminRole: String) {
         viewModelScope.launch {
+            // Por ahora, 'adminRole' no se usa en la llamada, pero se podría añadir
+            // si la API requiriera un Header de autorización, por ejemplo.
             val result = repository.getAllUsers()
-            result.onSuccess { lista ->
-                _users.value = lista
+            result.onSuccess { userList ->
+                _users.value = userList
+            }.onFailure {
+                _statusMessage.value = "Error al cargar usuarios: ${it.message}"
             }
         }
     }
 
-    fun deleteUser(user: UserEntity) {
+    fun deleteUser(user: UserEntity, adminRole: String) {
         viewModelScope.launch {
-            val result = repository.deleteUser(user.id)
+            val result = repository.deleteUser(user.id, adminRole)
             if (result.isSuccess) {
-                // Si se borró con éxito en el servidor, recargamos la lista
-                loadUsers()
+                fetchAllUsers(adminRole) // Recargamos la lista
+                _statusMessage.value = "Usuario eliminado"
+            } else {
+                _statusMessage.value = "Error al eliminar (Verifica permisos)"
             }
         }
     }
 
-    fun updateRole(user: UserEntity, newRole: String) {
+    fun updateRole(user: UserEntity, newRole: String, adminRole: String) {
         viewModelScope.launch {
-            val result = repository.updateUserRole(user.id, newRole)
+            val result = repository.updateUserRole(user.id, newRole, adminRole)
             if (result.isSuccess) {
-                loadUsers()
+                fetchAllUsers(adminRole) // Recargamos la lista
+                _statusMessage.value = "Rol actualizado a $newRole"
+            } else {
+                _statusMessage.value = "Error al actualizar rol (Verifica permisos)"
             }
         }
     }
+
+    fun clearMessage() { _statusMessage.value = null }
 }

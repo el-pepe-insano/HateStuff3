@@ -1,13 +1,11 @@
 package com.example.hatestuff3.ui.screen
 
-
-
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.VerifiedUser // <-- IMPORTAR ICONO
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,11 +15,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.hatestuff3.data.local.database.user.UserEntity
 import com.example.hatestuff3.ui.viewmodel.AdminViewModel
+import com.example.hatestuff3.ui.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminUsersScreen(adminViewModel: AdminViewModel, onBack: () -> Unit) {
+fun AdminUsersScreen(
+    adminViewModel: AdminViewModel,
+    authViewModel: AuthViewModel,
+    onBack: () -> Unit
+) {
     val users by adminViewModel.allUsers.collectAsState(initial = emptyList())
+    val message by adminViewModel.statusMessage.collectAsState()
+    val myRole by authViewModel.currentUserRole.collectAsState()
+
+    LaunchedEffect(Unit) {
+        adminViewModel.fetchAllUsers(myRole)
+    }
+
+    LaunchedEffect(message) {
+        if (message != null) {
+            // Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            // adminViewModel.clearMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -47,14 +63,16 @@ fun AdminUsersScreen(adminViewModel: AdminViewModel, onBack: () -> Unit) {
             items(users) { user ->
                 UserItem(
                     user = user,
-                    onDelete = { adminViewModel.deleteUser(user) },
+                    onDelete = { adminViewModel.deleteUser(user, myRole) },
+                    // <<--- CORRECCIÓN 1: Lógica de rotación de roles ---
                     onPromote = {
-                        val nextRole = when(user.role) {
-                            "USER" -> "MOD"
-                            "MOD" -> "ADMIN"
-                            else -> "USER"
+                        val nextRole = when (user.role) {
+                            "USER" -> "MODERADOR"
+                            "MODERADOR" -> "ADMIN"
+                            "ADMIN" -> "USER"
+                            else -> "USER" // Caso por defecto
                         }
-                        adminViewModel.updateRole(user, nextRole)
+                        adminViewModel.updateRole(user, nextRole, myRole)
                     }
                 )
             }
@@ -75,19 +93,36 @@ fun UserItem(user: UserEntity, onDelete: () -> Unit, onPromote: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(user.name, color = Color.White, fontWeight = FontWeight.Bold)
                 Text(user.email, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+
+                val roleColor = when(user.role) {
+                    "ADMIN" -> Color.Yellow
+                    "MODERADOR" -> Color.Cyan
+                    else -> Color(0xFFD32F2F)
+                }
+
                 Text(
-                    text = "ROL: ${user.role}",
-                    color = if (user.role == "ADMIN") Color.Yellow else Color(0xFFD32F2F),
-                    style = MaterialTheme.typography.labelLarge
+                    text = "ROL: ${user.role ?: "USER"}",
+                    color = roleColor,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            // Botón para cambiar Rango
+            // <<--- CORRECCIÓN 2: Iconos y colores dinámicos según el rol ---
             IconButton(onClick = onPromote) {
-                Icon(Icons.Default.Security, contentDescription = "Cambiar Rol", tint = Color.Cyan)
+                val icon = when(user.role) {
+                    "ADMIN" -> Icons.Default.Security
+                    "MODERADOR" -> Icons.Default.VerifiedUser
+                    else -> Icons.Outlined.VerifiedUser // Usar el icono de contorno para USER
+                }
+                val tint = when(user.role) {
+                    "ADMIN" -> Color.Yellow
+                    "MODERADOR" -> Color.Cyan
+                    else -> Color.Gray
+                }
+                Icon(icon, contentDescription = "Cambiar Rol", tint = tint)
             }
 
-            // Botón para Borrar (Baneo)
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Gray)
             }

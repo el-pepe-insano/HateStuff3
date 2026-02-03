@@ -161,8 +161,10 @@ fun AppNavGraph(
         }
 
         composable("admin_users") {
+            // AQUÍ ESTÁ EL CAMBIO IMPORTANTE:
             AdminUsersScreen(
                 adminViewModel = adminViewModel,
+                authViewModel = authViewModel, // <--- Pasamos el AuthViewModel
                 onBack = { navController.popBackStack() }
             )
         }

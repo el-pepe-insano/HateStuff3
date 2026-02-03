@@ -90,7 +90,7 @@ fun CreatePostScreen(
                     unfocusedTextColor = Color.White,
                     focusedContainerColor = Color(0xFF1A1A1A),
                     unfocusedContainerColor = Color(0xFF121212),
-                    focusedBorderColor = Color(0xFFC62828), // Borde rojo al escribir
+                    focusedBorderColor = Color(0xFFC62828),
                     unfocusedBorderColor = Color.DarkGray,
                     cursorColor = Color(0xFFC62828)
                 ),
@@ -100,7 +100,6 @@ fun CreatePostScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // VISTA PREVIA DE LA FOTO
             selectedImageUri?.let { uri ->
                 Box(
                     modifier = Modifier
@@ -115,7 +114,6 @@ fun CreatePostScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                    // Botón para quitar la foto con estilo
                     IconButton(
                         onClick = { selectedImageUri = null },
                         modifier = Modifier
@@ -131,7 +129,6 @@ fun CreatePostScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // BOTÓN PARA AÑADIR FOTO
             Button(
                 onClick = { galleryLauncher.launch("image/*") },
                 modifier = Modifier
@@ -142,7 +139,7 @@ fun CreatePostScreen(
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828)) // Borde rojo fino
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828))
             ) {
                 Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = Color(0xFFC62828))
                 Spacer(Modifier.width(12.dp))

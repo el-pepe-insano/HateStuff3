@@ -21,6 +21,7 @@ import org.mockito.Mockito.`when`
 import org.mockito.kotlin.any
 import org.robolectric.RobolectricTestRunner
 
+@org.robolectric.annotation.Config(manifest = org.robolectric.annotation.Config.NONE)
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ViewModelTest {

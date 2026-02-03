@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // PLUGIN DE HILT (Agregado)
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -41,9 +43,21 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
+    // --- HILT (INYECCIÓN DE DEPENDENCIAS - AGREGADO) ---
+    // Estas son las líneas que arreglan tus errores en rojo
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    ksp("com.google.dagger:hilt-compiler:2.51.1") // Usamos ksp porque tienes el plugin activado
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
     // Core y UI
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -76,15 +90,16 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // --- PRUEBAS UNITARIAS (test) ---
+    // --- PRUEBAS UNITARIAS ---
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:5.5.0")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    testImplementation("org.robolectric:robolectric:4.10.3")
+    testImplementation("org.mockito:mockito-core:5.11.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
     testImplementation("app.cash.turbine:turbine:1.0.0")
 
-    // --- PRUEBAS DE ANDROID (androidTest) ---
+    // --- PRUEBAS DE ANDROID ---
+    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

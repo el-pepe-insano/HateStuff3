@@ -7,7 +7,7 @@ data class UserDto(
     val name: String,
     val email: String,
     val password: String? = null,
-    val role: String? = "USER",
+    @SerializedName("role") val role: String? = "USER",
     val bio: String? = null,
 
     @SerializedName("profilePictureUri")

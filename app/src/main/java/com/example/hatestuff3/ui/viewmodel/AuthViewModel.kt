@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hatestuff3.data.local.database.repository.UserRepository
 import com.example.hatestuff3.data.local.database.user.UserEntity
+import dagger.hilt.android.lifecycle.HiltViewModel // IMPORTANTE PARA HILT
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject // IMPORTANTE PARA HILT
 
 data class AuthState(
     val loginEmail: String = "",
@@ -32,7 +34,10 @@ data class AuthState(
     val isRegisterSuccess: Boolean = false
 )
 
-class AuthViewModel(private val repository: UserRepository) : ViewModel() {
+@HiltViewModel // 1. Etiqueta necesaria para que Android sepa crear este ViewModel
+class AuthViewModel @Inject constructor(
+    private val repository: UserRepository
+) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -40,7 +45,11 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
     private val _currentUser = MutableStateFlow<UserEntity?>(null)
     val currentUser: StateFlow<UserEntity?> = _currentUser
 
-    // --- MANEJO DE TEXTO EN UI (Igual que antes) ---
+    // 2. NUEVO: Estado específico para el Rol (para ocultar/mostrar botones)
+    private val _currentUserRole = MutableStateFlow("USER")
+    val currentUserRole: StateFlow<String> = _currentUserRole.asStateFlow()
+
+    // --- MANEJO DE TEXTO EN UI ---
     fun onLoginEmailChange(text: String) { _state.update { it.copy(loginEmail = text, loginError = null) } }
     fun onLoginPassChange(text: String) { _state.update { it.copy(loginPass = text, loginError = null) } }
     fun onRegNameChange(text: String) { _state.update { it.copy(regName = text, regNameError = null) } }
@@ -48,7 +57,7 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
     fun onRegPassChange(text: String) { _state.update { it.copy(regPass = text, regPassError = null) } }
     fun onRegConfirmChange(text: String) { _state.update { it.copy(regConfirm = text, regConfirmError = null) } }
 
-    // --- LOGIN (Conectado a Repository) ---
+    // --- LOGIN ---
     fun login() {
         val email = _state.value.loginEmail.trim()
         val pass = _state.value.loginPass.trim()
@@ -61,11 +70,16 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
 
-            // Llamada al servidor
             val result = repository.login(email, pass)
 
             result.onSuccess { user ->
                 _currentUser.value = user
+
+                // 3. CAPTURA DEL ROL:
+                // Si el backend manda null, asumimos "USER".
+                val roleFromServer = user.role ?: "USER"
+                _currentUserRole.value = roleFromServer
+
                 _state.update { it.copy(isLoginSuccess = true, isLoading = false) }
             }.onFailure {
                 _state.update { it.copy(loginError = "Credenciales incorrectas o error de red", isLoading = false) }
@@ -73,7 +87,7 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
         }
     }
 
-    // --- REGISTRO (Conectado a Repository) ---
+    // --- REGISTRO ---
     fun register() {
         val s = _state.value
         if (!validateRegister(s)) return
@@ -81,11 +95,11 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
 
-            // Lógica de roles (se mantiene en cliente como pediste)
+            // Lógica "hack" para crear Admins fácil (mantenemos tu lógica, ¡es útil!)
             val emailLower = s.regEmail.trim().lowercase()
             val assignedRole = when {
                 emailLower.contains("admin") -> "ADMIN"
-                emailLower.contains("mod") -> "MOD"
+                emailLower.contains("mod") -> "MODERADOR" // Ajusté a "MODERADOR" para ser explícito
                 else -> "USER"
             }
 
@@ -93,16 +107,18 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
                 name = s.regName.trim(),
                 email = s.regEmail.trim(),
                 password = s.regPass,
-                role = assignedRole,
+                role = assignedRole, // Enviamos el rol calculado al backend
                 bio = "Nuevo usuario",
                 profilePictureUri = null
             )
 
-            // Llamada al servidor
             val result = repository.register(newUser)
 
             result.onSuccess { registeredUser ->
                 _currentUser.value = registeredUser
+                // También actualizamos el rol aquí por si entra directo
+                _currentUserRole.value = registeredUser.role ?: "USER"
+
                 _state.update { it.copy(isRegisterSuccess = true, isLoading = false) }
             }.onFailure {
                 _state.update { it.copy(regEmailError = "Error al registrar (posible duplicado)", isLoading = false) }
@@ -122,6 +138,7 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
 
     fun logout() {
         _currentUser.value = null
+        _currentUserRole.value = "USER" // Resetear rol al salir
         _state.value = AuthState()
     }
 
@@ -135,7 +152,6 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
             val result = repository.updateProfile(userId, newBio, newAvatarUri)
 
             result.onSuccess {
-                // Actualizamos el estado local si el servidor dijo OK
                 val current = _currentUser.value
                 if (current != null) {
                     _currentUser.value = current.copy(name = newName, bio = newBio, profilePictureUri = newAvatarUri)
@@ -144,7 +160,5 @@ class AuthViewModel(private val repository: UserRepository) : ViewModel() {
         }
     }
 
-    // OJO: La búsqueda por nombre se quitó porque la API no la soporta aún
-    // Si la necesitas, avísame para agregarla al Repository
     fun getUserPublicInfo(userName: String): Flow<UserEntity?> = flow { emit(null) }
 }
